@@ -13,41 +13,19 @@ class SplashPage extends StatefulWidget {
   State<SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
+class _SplashPageState extends State<SplashPage> {
   @override
   void initState() {
     super.initState();
-
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    );
-
-    _scaleAnimation =
-        CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
-    _fadeAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.4),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-
-    _controller.forward();
-    _checkSession();
+    _navigateNext();
   }
 
-  Future<void> _checkSession() async {
+  Future<void> _navigateNext() async {
     final userId = await SessionStore.userId();
     final role = await SessionStore.role();
 
-    await Future.delayed(const Duration(seconds: 4));
+    // مؤقت 3 ثواني
+    await Future.delayed(const Duration(seconds: 3));
 
     if (!mounted) return;
 
@@ -62,7 +40,7 @@ class _SplashPageState extends State<SplashPage>
         case 'seller':
           next = const SupplierDashboard();
           break;
-        case 'delevery':
+        case 'delivery': // ✅ التصحيح
           next = const DeliveryDashboard();
           break;
         default:
@@ -74,12 +52,6 @@ class _SplashPageState extends State<SplashPage>
         MaterialPageRoute(builder: (_) => next),
       );
     }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 
   @override
@@ -103,58 +75,40 @@ class _SplashPageState extends State<SplashPage>
             children: [
               Expanded(
                 child: Center(
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: ScaleTransition(
-                      scale: _scaleAnimation,
-                      child: Image.asset(
-                        'assets/images/logo.png',
-                        width: 160,
-                        height: 160,
-                      ),
-                    ),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    width: 160,
+                    height: 160,
                   ),
                 ),
               ),
-              FadeTransition(
-                opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: Column(
-                    children: const [
-                      Text(
-                        "أول تطبيق في سوريا لبيع قطع السيارات",
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: "Tajawal",
-                          color: Colors.white,
-                          height: 1.5,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        "دور عالقطعة يلي بتناسبك مع Part Tec",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          fontFamily: "Tajawal",
-                          color: Colors.white70,
-                          height: 1.3,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+              const Text(
+                "أول تطبيق في سوريا لبيع قطع السيارات",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: "Tajawal",
+                  color: Colors.white,
                 ),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 50),
+              const SizedBox(height: 10),
+              const Text(
+                "أطلب ما تشاء من قطع التبديل مع Part Tec",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: "Tajawal",
+                  color: Colors.white70,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
               const CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 strokeWidth: 3,
               ),
-              const SizedBox(height: 50),
+              const SizedBox(height: 40),
             ],
           ),
         ),

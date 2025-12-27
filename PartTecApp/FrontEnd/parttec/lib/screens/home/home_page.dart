@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:parttec/screens/recommendation/request_recommendation_page.dart';
 import 'package:provider/provider.dart';
 import 'package:parttec/models/part.dart';
 import '../../widgets/parts_widgets.dart';
@@ -293,7 +294,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               setState(() => _selectedCategoryIndex = i),
                         ),
                       ),
-                      SliverToBoxAdapter(
+                     /* SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                           child: _SectionTitle(title: 'قطع مقترحة لك'),
@@ -331,7 +332,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                             );
                           },
                         ),
-                      ),
+                      ),*/
                       if (_searchQuery.isNotEmpty) ...[
                         SliverToBoxAdapter(
                           child: Padding(
@@ -449,12 +450,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const AddPartPage()))
+                  MaterialPageRoute(builder: (_) => const RequestRecommendationPage()))
               .then((_) => _refresh());
         },
         backgroundColor: Colors.blue,
         icon: const Icon(Icons.add),
-        label: const Text('إضافة قطعة'),
+        label: const Text('طلب  قطعة'),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: _buildBottomAppBar(),

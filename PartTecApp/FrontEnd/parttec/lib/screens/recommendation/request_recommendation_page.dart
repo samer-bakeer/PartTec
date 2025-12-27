@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
 import '../../providers/order_provider.dart';
+import 'package:dropdown_search/dropdown_search.dart';
 
 class RequestRecommendationPage extends StatefulWidget {
   const RequestRecommendationPage({super.key});
@@ -22,14 +23,65 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
   String? serialNumber;
   String? note;
   File? _pickedImage;
+  String? selectedBrandCode;
+  String? selectedModel;
+
+  List<String> availableModels = [];
 
   final List<String> makes = ['Toyota', 'Hyundai', 'Kia'];
   final List<String> years = ['2025', '2024', '2023', '2022'];
+  final List<Map<String, String>> carBrands = [
+    {'name': 'تويوتا', 'code': 'Toyota'},
+    {'name': 'هيونداي', 'code': 'Hyundai'},
+    {'name': 'كيا', 'code': 'KIA'},
+    {'name': 'نيسان', 'code': 'Nissan'},
+    {'name': 'بي إم دبليو', 'code': 'BMW'},
+  ];
+
 
   final Map<String, String> _brandCodeMap = const {
     'Toyota': 'Toyota',
     'Hyundai': 'Hyundai',
     'Kia': 'KIA',
+  };
+  static const Map<String, List<String>> carModelsByBrand = {
+    'Toyota': [
+      'كورولا',
+      'كامري',
+      'يارس',
+      'راف فور',
+      'لاند كروزر',
+      'برادو',
+      'هايلكس',
+    ],
+    'Hyundai': [
+      'النترا',
+      'سوناتا',
+      'توسان',
+      'سانتافي',
+      'اكسنت',
+      'كريتا',
+    ],
+    'KIA': [
+      'سيراتو',
+      'سبورتاج',
+      'سورينتو',
+      'بيكانتو',
+      'ك5',
+    ],
+    'Nissan': [
+      'صني',
+      'التيما',
+      'باترول',
+      'اكستريل',
+      'قشقاي',
+    ],
+    'BMW': [
+      'الفئة الثالثة',
+      'الفئة الخامسة',
+      'X3',
+      'X5',
+    ],
   };
 
   Future<void> _pickImage() async {
@@ -52,16 +104,17 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
     ].join(' • ');
 
     final ok = await provider.createSpecificOrder(
-      brandCode: brandCode,
+      brandCode: selectedBrandCode!,   // ← من Dropdown الشركة
       partName: (partName == null || partName!.trim().isEmpty)
           ? 'unspecified'
           : partName!.trim(),
-      carModel: model!.trim(),
+      carModel: selectedModel!,        // ← من Dropdown الموديل
       carYear: year!,
       notes: mergedNotes.isEmpty ? null : mergedNotes,
       image: _pickedImage,
       serialNumber: serialNumber ?? '',
     );
+
 
     if (!mounted) return;
 
@@ -100,25 +153,70 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                   onSaved: (v) => partName = v,
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                      labelText: 'نوع السيارة (الماركة)',
-                      border: OutlineInputBorder()),
-                  items: makes
-                      .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                      .toList(),
-                  value: carMake,
-                  onChanged: (v) => setState(() => carMake = v),
+                DropdownSearch<Map<String, String>>(
+                  items: carBrands,
+                  itemAsString: (item) => item!['name']!,
+                  selectedItem: selectedBrandCode == null
+                      ? null
+                      : carBrands.firstWhere(
+                        (e) => e['code'] == selectedBrandCode,
+                  ),
+                  popupProps: PopupProps.menu(
+                    showSearchBox: true,
+                    searchFieldProps: TextFieldProps(
+                      textDirection: TextDirection.rtl,
+                      decoration: InputDecoration(
+                        hintText: 'ابحث عن الشركة',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  dropdownDecoratorProps: DropDownDecoratorProps(
+                    dropdownSearchDecoration: InputDecoration(
+                      labelText: 'الشركة المصنعة',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      selectedBrandCode = value?['code'];
+                      selectedModel = null; // تفريغ الموديل
+                      availableModels =
+                          carModelsByBrand[selectedBrandCode] ?? [];
+                    });
+                  },
                   validator: (v) => v == null ? 'مطلوب' : null,
                 ),
+
                 const SizedBox(height: 12),
-                TextFormField(
-                  decoration: const InputDecoration(
-                      labelText: 'موديل السيارة', border: OutlineInputBorder()),
-                  onSaved: (v) => model = v,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
-                ),
+                if (availableModels.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  DropdownSearch<String>(
+                    items: availableModels,
+                    selectedItem: selectedModel,
+                    popupProps: PopupProps.menu(
+                      showSearchBox: true,
+                      searchFieldProps: TextFieldProps(
+                        textDirection: TextDirection.rtl,
+                        decoration: InputDecoration(
+                          hintText: 'ابحث عن الموديل',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    dropdownDecoratorProps: DropDownDecoratorProps(
+                      dropdownSearchDecoration: InputDecoration(
+                        labelText: 'موديل السيارة',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      setState(() => selectedModel = value);
+                    },
+                    validator: (v) => v == null ? 'مطلوب اختيار الموديل' : null,
+                  ),
+                ],
+
                 const SizedBox(height: 12),
                 TextFormField(
                   decoration: const InputDecoration(

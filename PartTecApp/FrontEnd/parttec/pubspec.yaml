@@ -10,7 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+  webview_flutter: ^4.4.2
   image_picker: ^1.1.0
   http: ^1.2.1
   flutter_map: ^6.1.0
@@ -21,14 +21,22 @@ dependencies:
   shared_preferences: ^2.2.2   # ✅ آخر نسخة متوافقة مع Dart 3.3
   fl_chart: ^0.68.0
   file_picker: ^8.0.0
-  firebase_core: ^2.32.0       # ✅ متوافقة مع Dart 3.3
-  firebase_messaging: ^14.7.10 # ✅ متوافقة مع Dart 3.3
-  flutter_local_notifications: 18.0.1 # ✅ نزّلنا النسخة لحل مشكلة SDK
+  dropdown_search: ^5.0.6
+
+  flutter_local_notifications: 18.0.1
+  shared_preferences_platform_interface: any
+  shared_preferences_foundation: any
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
-
+  flutter_launcher_icons: ^0.13.1
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/logo.png
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo.png"
