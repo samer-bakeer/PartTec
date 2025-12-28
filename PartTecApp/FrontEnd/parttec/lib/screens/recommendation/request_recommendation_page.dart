@@ -29,7 +29,7 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
     });
   }
   final _formKey = GlobalKey<FormState>();
-  String? partName;
+  String? name;
 
   // carMake لم يعد له داعي لأنه يتم استخدام selectedBrandCode مباشرة
   String? model;
@@ -39,6 +39,7 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
   File? _pickedImage;
   String? selectedBrandCode;
   String? selectedModel;
+  late bool isLoadingModels;
 
   List<String> availableModels = [];
 
@@ -68,15 +69,16 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
 
     final ok = await provider.createSpecificOrder(
       brandCode: selectedBrandCode!,
-      partName: (partName == null || partName!.trim().isEmpty)
+      name: (name == null || name!.trim().isEmpty)
           ? 'unspecified'
-          : partName!.trim(),
+          : name!.trim(),
       carModel: selectedModel!,
       carYear: year!,
       notes: mergedNotes.isEmpty ? null : mergedNotes,
       image: _pickedImage,
       serialNumber: serialNumber ?? '',
     );
+
 
 
     if (!mounted) return;
@@ -116,14 +118,14 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                   decoration: const InputDecoration(
                       labelText: 'اسم القطعة ',
                       border: OutlineInputBorder()),
-                  onSaved: (v) => partName = v,
+                  onSaved: (v) => name= v,
                 ),
                 const SizedBox(height: 12),
 
                 // --- قائمة الشركات ---
                 DropdownSearch<Map<String, dynamic>>(
                   items: context.watch<CarProvider>().brands,
-                  itemAsString: (item) => item!['name'],
+                  itemAsString: (item) => item['name'],
 
                   selectedItem: selectedBrandCode == null
                       ? null
@@ -169,12 +171,13 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                 ),
 
                 const SizedBox(height: 12),
-                if (context.watch<CarProvider>().models.isNotEmpty) ...[
+                if (selectedBrandCode != null) ...[
+                  const SizedBox(height: 12),
+
                   DropdownSearch<String>(
                     items: context.watch<CarProvider>().models,
                     selectedItem: selectedModel,
 
-                    // ✅ التلميح
                     dropdownDecoratorProps: const DropDownDecoratorProps(
                       dropdownSearchDecoration: InputDecoration(
                         labelText: 'موديل السيارة',
@@ -183,7 +186,6 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                       ),
                     ),
 
-                    // ✅ البحث داخل الموديلات
                     popupProps: PopupProps.menu(
                       showSearchBox: true,
                       searchFieldProps: TextFieldProps(
@@ -201,8 +203,8 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
 
                     validator: (v) => v == null ? 'مطلوب اختيار الموديل' : null,
                   ),
-
                 ],
+
                 const SizedBox(height: 12),
                 TextFormField(
                   decoration: const InputDecoration(

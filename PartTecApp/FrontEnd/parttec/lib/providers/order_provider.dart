@@ -145,7 +145,7 @@ class OrderProvider with ChangeNotifier {
 
   Future<bool> createSpecificOrder({
     required String brandCode,
-    required String partName,
+    required String name,
     required String carModel,
     required String carYear,
     required String serialNumber,
@@ -184,7 +184,7 @@ class OrderProvider with ChangeNotifier {
 
       req.fields.addAll({
         'manufacturer': brandCode.toLowerCase(),
-        'name': partName,
+        'name': name,
         'user': uid,
         'model': carModel,
         'year': carYear,
