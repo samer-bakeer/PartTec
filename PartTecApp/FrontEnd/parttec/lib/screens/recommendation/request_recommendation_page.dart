@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../providers/car_provider.dart';
 import '../../theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -6,8 +7,13 @@ import 'dart:io';
 import '../../providers/order_provider.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 
+// 1. استيراد ملف البيانات الجديد (تأكد من المسار الصحيح)
+import '../../constants/car_data.dart';
+
 class RequestRecommendationPage extends StatefulWidget {
   const RequestRecommendationPage({super.key});
+
+
 
   @override
   State<RequestRecommendationPage> createState() =>
@@ -15,9 +21,17 @@ class RequestRecommendationPage extends StatefulWidget {
 }
 
 class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CarProvider>().fetchBrands();
+    });
+  }
   final _formKey = GlobalKey<FormState>();
   String? partName;
-  String? carMake;
+
+  // carMake لم يعد له داعي لأنه يتم استخدام selectedBrandCode مباشرة
   String? model;
   String? year;
   String? serialNumber;
@@ -28,61 +42,7 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
 
   List<String> availableModels = [];
 
-  final List<String> makes = ['Toyota', 'Hyundai', 'Kia'];
-  final List<String> years = ['2025', '2024', '2023', '2022'];
-  final List<Map<String, String>> carBrands = [
-    {'name': 'تويوتا', 'code': 'Toyota'},
-    {'name': 'هيونداي', 'code': 'Hyundai'},
-    {'name': 'كيا', 'code': 'KIA'},
-    {'name': 'نيسان', 'code': 'Nissan'},
-    {'name': 'بي إم دبليو', 'code': 'BMW'},
-  ];
-
-
-  final Map<String, String> _brandCodeMap = const {
-    'Toyota': 'Toyota',
-    'Hyundai': 'Hyundai',
-    'Kia': 'KIA',
-  };
-  static const Map<String, List<String>> carModelsByBrand = {
-    'Toyota': [
-      'كورولا',
-      'كامري',
-      'يارس',
-      'راف فور',
-      'لاند كروزر',
-      'برادو',
-      'هايلكس',
-    ],
-    'Hyundai': [
-      'النترا',
-      'سوناتا',
-      'توسان',
-      'سانتافي',
-      'اكسنت',
-      'كريتا',
-    ],
-    'KIA': [
-      'سيراتو',
-      'سبورتاج',
-      'سورينتو',
-      'بيكانتو',
-      'ك5',
-    ],
-    'Nissan': [
-      'صني',
-      'التيما',
-      'باترول',
-      'اكستريل',
-      'قشقاي',
-    ],
-    'BMW': [
-      'الفئة الثالثة',
-      'الفئة الخامسة',
-      'X3',
-      'X5',
-    ],
-  };
+  // تمت إزالة القوائم الطويلة (makes, years, carBrands, carModelsByBrand) من هنا
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -95,20 +55,23 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
     _formKey.currentState!.save();
 
     final provider = context.read<OrderProvider>();
-    final brandCode = _brandCodeMap[carMake ?? ''] ?? '';
 
     final mergedNotes = [
-      if ((note ?? '').trim().isNotEmpty) note!.trim(),
-      if ((serialNumber ?? '').trim().isNotEmpty)
+      if ((note ?? '')
+          .trim()
+          .isNotEmpty) note!.trim(),
+      if ((serialNumber ?? '')
+          .trim()
+          .isNotEmpty)
         'Serial: ${serialNumber!.trim()}',
     ].join(' • ');
 
     final ok = await provider.createSpecificOrder(
-      brandCode: selectedBrandCode!,   // ← من Dropdown الشركة
+      brandCode: selectedBrandCode!,
       partName: (partName == null || partName!.trim().isEmpty)
           ? 'unspecified'
           : partName!.trim(),
-      carModel: selectedModel!,        // ← من Dropdown الموديل
+      carModel: selectedModel!,
       carYear: year!,
       notes: mergedNotes.isEmpty ? null : mergedNotes,
       image: _pickedImage,
@@ -122,7 +85,8 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(
-                'تم إرسال الطلب${provider.lastOrderId != null ? " (#${provider.lastOrderId})" : ""}')),
+                'تم إرسال الطلب${provider.lastOrderId != null ? " (#${provider
+                    .lastOrderId})" : ""}')),
       );
       Navigator.pop(context, true);
     } else {
@@ -134,7 +98,9 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isSubmitting = context.watch<OrderProvider>().isSubmitting;
+    final isSubmitting = context
+        .watch<OrderProvider>()
+        .isSubmitting;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -148,75 +114,95 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
               children: [
                 TextFormField(
                   decoration: const InputDecoration(
-                      labelText: 'اسم القطعة (اختياري)',
+                      labelText: 'اسم القطعة ',
                       border: OutlineInputBorder()),
                   onSaved: (v) => partName = v,
                 ),
                 const SizedBox(height: 12),
-                DropdownSearch<Map<String, String>>(
-                  items: carBrands,
-                  itemAsString: (item) => item!['name']!,
+
+                // --- قائمة الشركات ---
+                DropdownSearch<Map<String, dynamic>>(
+                  items: context.watch<CarProvider>().brands,
+                  itemAsString: (item) => item!['name'],
+
                   selectedItem: selectedBrandCode == null
                       ? null
-                      : carBrands.firstWhere(
+                      : context.watch<CarProvider>().brands.firstWhere(
                         (e) => e['code'] == selectedBrandCode,
                   ),
+
+                  // ✅ التلميح داخل البوكس
+                  dropdownDecoratorProps: const DropDownDecoratorProps(
+                    dropdownSearchDecoration: InputDecoration(
+                      labelText: 'الشركة المصنعة',
+                      hintText: 'اختر شركة السيارة',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+
+                  // ✅ تفعيل البحث
                   popupProps: PopupProps.menu(
                     showSearchBox: true,
                     searchFieldProps: TextFieldProps(
                       textDirection: TextDirection.rtl,
                       decoration: InputDecoration(
-                        hintText: 'ابحث عن الشركة',
+                        hintText: 'ابحث عن شركة...',
                         border: OutlineInputBorder(),
                       ),
                     ),
                   ),
-                  dropdownDecoratorProps: DropDownDecoratorProps(
-                    dropdownSearchDecoration: InputDecoration(
-                      labelText: 'الشركة المصنعة',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  onChanged: (value) {
+
+                  onChanged: (value) async {
                     setState(() {
                       selectedBrandCode = value?['code'];
-                      selectedModel = null; // تفريغ الموديل
-                      availableModels =
-                          carModelsByBrand[selectedBrandCode] ?? [];
+                      selectedModel = null;
                     });
+
+                    if (selectedBrandCode != null) {
+                      await context
+                          .read<CarProvider>()
+                          .fetchModels(selectedBrandCode!);
+                    }
                   },
-                  validator: (v) => v == null ? 'مطلوب' : null,
+
+                  validator: (v) => v == null ? 'مطلوب اختيار الشركة' : null,
                 ),
 
                 const SizedBox(height: 12),
-                if (availableModels.isNotEmpty) ...[
-                  const SizedBox(height: 12),
+                if (context.watch<CarProvider>().models.isNotEmpty) ...[
                   DropdownSearch<String>(
-                    items: availableModels,
+                    items: context.watch<CarProvider>().models,
                     selectedItem: selectedModel,
+
+                    // ✅ التلميح
+                    dropdownDecoratorProps: const DropDownDecoratorProps(
+                      dropdownSearchDecoration: InputDecoration(
+                        labelText: 'موديل السيارة',
+                        hintText: 'اختر موديل السيارة',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+
+                    // ✅ البحث داخل الموديلات
                     popupProps: PopupProps.menu(
                       showSearchBox: true,
                       searchFieldProps: TextFieldProps(
                         textDirection: TextDirection.rtl,
                         decoration: InputDecoration(
-                          hintText: 'ابحث عن الموديل',
+                          hintText: 'ابحث عن موديل...',
                           border: OutlineInputBorder(),
                         ),
                       ),
                     ),
-                    dropdownDecoratorProps: DropDownDecoratorProps(
-                      dropdownSearchDecoration: InputDecoration(
-                        labelText: 'موديل السيارة',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
+
                     onChanged: (value) {
                       setState(() => selectedModel = value);
                     },
+
                     validator: (v) => v == null ? 'مطلوب اختيار الموديل' : null,
                   ),
-                ],
 
+                ],
                 const SizedBox(height: 12),
                 TextFormField(
                   decoration: const InputDecoration(
@@ -225,30 +211,37 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                   onSaved: (v) => serialNumber = v,
                 ),
                 const SizedBox(height: 12),
+
+                // --- قائمة السنوات ---
                 DropdownButtonFormField<String>(
                   decoration: const InputDecoration(
-                      labelText: 'سنة الصنع', border: OutlineInputBorder()),
-                  items: years
+                      labelText: 'سنة صنع السيارة', border: OutlineInputBorder()),
+                  items: CarData.years
                       .map((y) => DropdownMenuItem(value: y, child: Text(y)))
                       .toList(),
                   value: year,
                   onChanged: (v) => setState(() => year = v),
                   validator: (v) => v == null ? 'مطلوب' : null,
                 ),
+
                 const SizedBox(height: 12),
+                const Text(
+                  "أدخل صورة القطعة",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
                 GestureDetector(
                   onTap: _pickImage,
                   child: Container(
                     height: 150,
                     decoration: BoxDecoration(
-                      // استخدم لون الحدود من الثيم بدلاً من الرمادي الصريح
                       border: Border.all(color: AppColors.chipBorder),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: _pickedImage != null
                         ? Image.file(_pickedImage!, fit: BoxFit.cover)
                         : const Center(
-                            child: Text('اضغط لاختيار صورة (اختياري)')),
+                        child: Text('اضغط لاختيار صورة (اختياري)')),
                   ),
                 ),
                 const SizedBox(height: 20),

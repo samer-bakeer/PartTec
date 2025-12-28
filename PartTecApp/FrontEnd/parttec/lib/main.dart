@@ -21,6 +21,7 @@ import 'screens/auth/auth_page.dart';
 import 'providers/user_provider.dart';
 import 'screens/home/home_page.dart';
 import 'screens/supplier/supplier_dashboard.dart';
+import 'providers/car_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +32,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => CarProvider()),
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider(create: (_) => AddPartProvider()),
         ChangeNotifierProvider(create: (_) => HomeProvider()),
