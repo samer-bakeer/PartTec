@@ -9,7 +9,7 @@ import '../../providers/add_part_provider.dart';
 import '../../utils/app_settings.dart';
 import '../../theme/app_theme.dart';
 import '../qr/qr_scan_page.dart';
-
+import 'package:parttec/utils/session_store.dart';
 class KiaPartAddPage extends StatefulWidget {
   const KiaPartAddPage({super.key});
 
@@ -20,10 +20,10 @@ class KiaPartAddPage extends StatefulWidget {
 class _KiaPartAddPageState extends State<KiaPartAddPage> {
   final List<String> years = ['2020', '2021', '2022', '2023', '2024'];
   final List<String> partsList = [
-    'فلتر زيت',
+    'فلتر هواء',
     'كمبيوتر محرك',
     'ردياتير',
-    'بواجي'
+    'بواجي','ضو','ستوب','طارة','مخمدات','غطا باكاج'
   ];
   final List<String> categories = ['محرك', 'فرامل', 'كهرباء', 'هيكل'];
   final List<String> statuses = ['جديد', 'مستعمل'];
@@ -61,8 +61,9 @@ class _KiaPartAddPageState extends State<KiaPartAddPage> {
   }
 
   Future<void> _fetchBrands() async {
+    final uid = await SessionStore.userId();
     final url = Uri.parse(
-      '${AppSettings.serverurl}/user/viewsellerprands/6891009147d76ee5e1b22647',
+      '${AppSettings.serverurl}/user/viewsellerprands/$uid',
     );
     try {
       final r = await http.get(url);
