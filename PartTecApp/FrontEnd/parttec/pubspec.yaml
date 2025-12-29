@@ -18,12 +18,15 @@ dependencies:
   qr_code_scanner: ^1.0.1
   cupertino_icons: ^1.0.8
   provider: ^6.0.5
-  shared_preferences: ^2.2.2   # ✅ آخر نسخة متوافقة مع Dart 3.3
+  shared_preferences: ^2.2.2
   fl_chart: ^0.68.0
   file_picker: ^8.0.0
-  firebase_core: ^2.32.0       # ✅ متوافقة مع Dart 3.3
-  firebase_messaging: ^14.7.10 # ✅ متوافقة مع Dart 3.3
-  flutter_local_notifications: 18.0.1 # ✅ نزّلنا النسخة لحل مشكلة SDK
+  firebase_core: ^2.32.0
+  firebase_messaging: ^14.7.10
+  flutter_local_notifications: 18.0.1
+  webview_flutter: ^4.4.2
+  webview_flutter_android: ^3.15.0
+  webview_flutter_wkwebview: ^3.13.0
 
 dev_dependencies:
   flutter_test:
@@ -32,3 +35,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/logo.png
