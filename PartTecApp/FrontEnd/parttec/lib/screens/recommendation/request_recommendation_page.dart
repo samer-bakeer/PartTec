@@ -13,8 +13,6 @@ import '../../constants/car_data.dart';
 class RequestRecommendationPage extends StatefulWidget {
   const RequestRecommendationPage({super.key});
 
-
-
   @override
   State<RequestRecommendationPage> createState() =>
       _RequestRecommendationPageState();
@@ -28,6 +26,7 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
       context.read<CarProvider>().fetchBrands();
     });
   }
+
   final _formKey = GlobalKey<FormState>();
   String? name;
 
@@ -58,20 +57,15 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
     final provider = context.read<OrderProvider>();
 
     final mergedNotes = [
-      if ((note ?? '')
-          .trim()
-          .isNotEmpty) note!.trim(),
-      if ((serialNumber ?? '')
-          .trim()
-          .isNotEmpty)
+      if ((note ?? '').trim().isNotEmpty) note!.trim(),
+      if ((serialNumber ?? '').trim().isNotEmpty)
         'Serial: ${serialNumber!.trim()}',
     ].join(' • ');
 
     final ok = await provider.createSpecificOrder(
       brandCode: selectedBrandCode!,
-      name: (name == null || name!.trim().isEmpty)
-          ? 'unspecified'
-          : name!.trim(),
+      name:
+          (name == null || name!.trim().isEmpty) ? 'unspecified' : name!.trim(),
       carModel: selectedModel!,
       carYear: year!,
       notes: mergedNotes.isEmpty ? null : mergedNotes,
@@ -79,16 +73,13 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
       serialNumber: serialNumber ?? '',
     );
 
-
-
     if (!mounted) return;
 
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(
-                'تم إرسال الطلب${provider.lastOrderId != null ? " (#${provider
-                    .lastOrderId})" : ""}')),
+                'تم إرسال الطلب${provider.lastOrderId != null ? " (#${provider.lastOrderId})" : ""}')),
       );
       Navigator.pop(context, true);
     } else {
@@ -100,9 +91,7 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isSubmitting = context
-        .watch<OrderProvider>()
-        .isSubmitting;
+    final isSubmitting = context.watch<OrderProvider>().isSubmitting;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -116,9 +105,8 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
               children: [
                 TextFormField(
                   decoration: const InputDecoration(
-                      labelText: 'اسم القطعة ',
-                      border: OutlineInputBorder()),
-                  onSaved: (v) => name= v,
+                      labelText: 'اسم القطعة ', border: OutlineInputBorder()),
+                  onSaved: (v) => name = v,
                 ),
                 const SizedBox(height: 12),
 
@@ -130,8 +118,8 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                   selectedItem: selectedBrandCode == null
                       ? null
                       : context.watch<CarProvider>().brands.firstWhere(
-                        (e) => e['code'] == selectedBrandCode,
-                  ),
+                            (e) => e['code'] == selectedBrandCode,
+                          ),
 
                   // ✅ التلميح داخل البوكس
                   dropdownDecoratorProps: const DropDownDecoratorProps(
@@ -173,11 +161,9 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                 const SizedBox(height: 12),
                 if (selectedBrandCode != null) ...[
                   const SizedBox(height: 12),
-
                   DropdownSearch<String>(
                     items: context.watch<CarProvider>().models,
                     selectedItem: selectedModel,
-
                     dropdownDecoratorProps: const DropDownDecoratorProps(
                       dropdownSearchDecoration: InputDecoration(
                         labelText: 'موديل السيارة',
@@ -185,7 +171,6 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                         border: OutlineInputBorder(),
                       ),
                     ),
-
                     popupProps: PopupProps.menu(
                       showSearchBox: true,
                       searchFieldProps: TextFieldProps(
@@ -196,11 +181,9 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                         ),
                       ),
                     ),
-
                     onChanged: (value) {
                       setState(() => selectedModel = value);
                     },
-
                     validator: (v) => v == null ? 'مطلوب اختيار الموديل' : null,
                   ),
                 ],
@@ -217,7 +200,8 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                 // --- قائمة السنوات ---
                 DropdownButtonFormField<String>(
                   decoration: const InputDecoration(
-                      labelText: 'سنة صنع السيارة', border: OutlineInputBorder()),
+                      labelText: 'سنة صنع السيارة',
+                      border: OutlineInputBorder()),
                   items: CarData.years
                       .map((y) => DropdownMenuItem(value: y, child: Text(y)))
                       .toList(),
@@ -243,7 +227,7 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                     child: _pickedImage != null
                         ? Image.file(_pickedImage!, fit: BoxFit.cover)
                         : const Center(
-                        child: Text('اضغط لاختيار صورة (اختياري)')),
+                            child: Text('اضغط لاختيار صورة (اختياري)')),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -251,7 +235,6 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                   onPressed: isSubmitting ? null : _submit,
                   icon: const Icon(Icons.send),
                   label: Text(isSubmitting ? 'جارٍ الإرسال...' : 'إرسال الطلب'),
-
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 50),
                     backgroundColor: AppColors.primary,

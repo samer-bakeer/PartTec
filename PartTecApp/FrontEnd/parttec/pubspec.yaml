@@ -1,16 +1,16 @@
 name: parttec
-description: "A new Flutter project."
-publish_to: "none"
+description: 'A new Flutter project.'
+publish_to: 'none'
 
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.3.0 <4.0.0"
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  webview_flutter: ^4.4.2
+  # webview_flutter: ^4.4.2
   image_picker: ^1.1.0
   http: ^1.2.1
   flutter_map: ^6.1.0
@@ -21,20 +21,13 @@ dependencies:
   shared_preferences: ^2.2.2
   fl_chart: ^0.68.0
   file_picker: ^8.0.0
-<<<<<<< HEAD
   firebase_core: ^2.32.0
   firebase_messaging: ^14.7.10
   flutter_local_notifications: 18.0.1
   webview_flutter: ^4.4.2
   webview_flutter_android: ^3.15.0
   webview_flutter_wkwebview: ^3.13.0
-=======
   dropdown_search: ^5.0.6
-
-  flutter_local_notifications: 18.0.1
-  shared_preferences_platform_interface: any
-  shared_preferences_foundation: any
->>>>>>> ac73e6abfcccd9fcdd4deef18c37b6cb8c431764
 
 dev_dependencies:
   flutter_test:
@@ -45,10 +38,3 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/logo.png
-<<<<<<< HEAD
-=======
-flutter_launcher_icons:
-  android: true
-  ios: true
-  image_path: "assets/images/logo.png"
->>>>>>> ac73e6abfcccd9fcdd4deef18c37b6cb8c431764
