@@ -6,8 +6,6 @@ import 'package:provider/provider.dart';
 import 'dart:io';
 import '../../providers/order_provider.dart';
 import 'package:dropdown_search/dropdown_search.dart';
-
-// 1. استيراد ملف البيانات الجديد (تأكد من المسار الصحيح)
 import '../../constants/car_data.dart';
 
 class RequestRecommendationPage extends StatefulWidget {
@@ -18,7 +16,21 @@ class RequestRecommendationPage extends StatefulWidget {
       _RequestRecommendationPageState();
 }
 
-class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
+class _RequestRecommendationPageState
+    extends State<RequestRecommendationPage>
+    with SingleTickerProviderStateMixin {
+
+  final _formKey = GlobalKey<FormState>();
+
+  String? name;
+  String? model;
+  String? year;
+  String? serialNumber;
+  String? note;
+  File? _pickedImage;
+  String? selectedBrandCode;
+  String? selectedModel;
+
   @override
   void initState() {
     super.initState();
@@ -27,27 +39,12 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
     });
   }
 
-  final _formKey = GlobalKey<FormState>();
-  String? name;
-
-  // carMake لم يعد له داعي لأنه يتم استخدام selectedBrandCode مباشرة
-  String? model;
-  String? year;
-  String? serialNumber;
-  String? note;
-  File? _pickedImage;
-  String? selectedBrandCode;
-  String? selectedModel;
-  late bool isLoadingModels;
-
-  List<String> availableModels = [];
-
-  // تمت إزالة القوائم الطويلة (makes, years, carBrands, carModelsByBrand) من هنا
-
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final f = await picker.pickImage(source: ImageSource.gallery);
-    if (f != null) setState(() => _pickedImage = File(f.path));
+    if (f != null) {
+      setState(() => _pickedImage = File(f.path));
+    }
   }
 
   Future<void> _submit() async {
@@ -64,8 +61,9 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
 
     final ok = await provider.createSpecificOrder(
       brandCode: selectedBrandCode!,
-      name:
-          (name == null || name!.trim().isEmpty) ? 'unspecified' : name!.trim(),
+      name: (name == null || name!.trim().isEmpty)
+          ? 'unspecified'
+          : name!.trim(),
       carModel: selectedModel!,
       carYear: year!,
       notes: mergedNotes.isEmpty ? null : mergedNotes,
@@ -78,8 +76,9 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(
-                'تم إرسال الطلب${provider.lastOrderId != null ? " (#${provider.lastOrderId})" : ""}')),
+          content: Text(
+              'تم إرسال الطلب${provider.lastOrderId != null ? " (#${provider.lastOrderId})" : ""}'),
+        ),
       );
       Navigator.pop(context, true);
     } else {
@@ -96,155 +95,222 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(title: const Text('طلب توصية قطعة')),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              children: [
-                TextFormField(
-                  decoration: const InputDecoration(
-                      labelText: 'اسم القطعة ', border: OutlineInputBorder()),
-                  onSaved: (v) => name = v,
-                ),
-                const SizedBox(height: 12),
-
-                // --- قائمة الشركات ---
-                DropdownSearch<Map<String, dynamic>>(
-                  items: context.watch<CarProvider>().brands,
-                  itemAsString: (item) => item['name'],
-
-                  selectedItem: selectedBrandCode == null
-                      ? null
-                      : context.watch<CarProvider>().brands.firstWhere(
-                            (e) => e['code'] == selectedBrandCode,
-                          ),
-
-                  // ✅ التلميح داخل البوكس
-                  dropdownDecoratorProps: const DropDownDecoratorProps(
-                    dropdownSearchDecoration: InputDecoration(
-                      labelText: 'الشركة المصنعة',
-                      hintText: 'اختر شركة السيارة',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-
-                  // ✅ تفعيل البحث
-                  popupProps: PopupProps.menu(
-                    showSearchBox: true,
-                    searchFieldProps: TextFieldProps(
-                      textDirection: TextDirection.rtl,
-                      decoration: InputDecoration(
-                        hintText: 'ابحث عن شركة...',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-
-                  onChanged: (value) async {
-                    setState(() {
-                      selectedBrandCode = value?['code'];
-                      selectedModel = null;
-                    });
-
-                    if (selectedBrandCode != null) {
-                      await context
-                          .read<CarProvider>()
-                          .fetchModels(selectedBrandCode!);
-                    }
-                  },
-
-                  validator: (v) => v == null ? 'مطلوب اختيار الشركة' : null,
-                ),
-
-                const SizedBox(height: 12),
-                if (selectedBrandCode != null) ...[
-                  const SizedBox(height: 12),
-                  DropdownSearch<String>(
-                    items: context.watch<CarProvider>().models,
-                    selectedItem: selectedModel,
-                    dropdownDecoratorProps: const DropDownDecoratorProps(
-                      dropdownSearchDecoration: InputDecoration(
-                        labelText: 'موديل السيارة',
-                        hintText: 'اختر موديل السيارة',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    popupProps: PopupProps.menu(
-                      showSearchBox: true,
-                      searchFieldProps: TextFieldProps(
-                        textDirection: TextDirection.rtl,
-                        decoration: InputDecoration(
-                          hintText: 'ابحث عن موديل...',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    onChanged: (value) {
-                      setState(() => selectedModel = value);
-                    },
-                    validator: (v) => v == null ? 'مطلوب اختيار الموديل' : null,
-                  ),
-                ],
-
-                const SizedBox(height: 12),
-                TextFormField(
-                  decoration: const InputDecoration(
-                      labelText: 'الرقم التسلسلي (اختياري)',
-                      border: OutlineInputBorder()),
-                  onSaved: (v) => serialNumber = v,
-                ),
-                const SizedBox(height: 12),
-
-                // --- قائمة السنوات ---
-                DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                      labelText: 'سنة صنع السيارة',
-                      border: OutlineInputBorder()),
-                  items: CarData.years
-                      .map((y) => DropdownMenuItem(value: y, child: Text(y)))
-                      .toList(),
-                  value: year,
-                  onChanged: (v) => setState(() => year = v),
-                  validator: (v) => v == null ? 'مطلوب' : null,
-                ),
-
-                const SizedBox(height: 12),
-                const Text(
-                  "أدخل صورة القطعة",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: Container(
-                    height: 150,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.chipBorder),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: _pickedImage != null
-                        ? Image.file(_pickedImage!, fit: BoxFit.cover)
-                        : const Center(
-                            child: Text('اضغط لاختيار صورة (اختياري)')),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton.icon(
-                  onPressed: isSubmitting ? null : _submit,
-                  icon: const Icon(Icons.send),
-                  label: Text(isSubmitting ? 'جارٍ الإرسال...' : 'إرسال الطلب'),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50),
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
+        backgroundColor: const Color(0xFFF1F5F9),
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: AppColors.primary,
+          centerTitle: true,
+          title: const Text(
+            'طلب توصية قطعة',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
             ),
           ),
         ),
+        body: AnimatedOpacity(
+          opacity: 1,
+          duration: const Duration(milliseconds: 600),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Card(
+              elevation: 6,
+              shadowColor: Colors.black12,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Form(
+                  key: _formKey,
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+
+                      /// اسم القطعة
+                      TextFormField(
+                        decoration: _inputDecoration('اسم القطعة'),
+                        onSaved: (v) => name = v,
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      /// الشركة
+                      DropdownSearch<Map<String, dynamic>>(
+                        items: context.watch<CarProvider>().brands,
+                        itemAsString: (item) => item['name'],
+
+                        selectedItem: selectedBrandCode == null
+                            ? null
+                            : context.watch<CarProvider>().brands.firstWhere(
+                              (e) => e['code'] == selectedBrandCode,
+                          orElse: () => context.watch<CarProvider>().brands.first,
+                        ),
+
+                        dropdownDecoratorProps: DropDownDecoratorProps(
+                          dropdownSearchDecoration: _inputDecoration('الشركة المصنعة'),
+                        ),
+
+                        popupProps: const PopupProps.menu(
+                          showSearchBox: true,
+                        ),
+
+                        onChanged: (value) async {
+                          if (value == null) return;
+
+                          setState(() {
+                            selectedBrandCode = value['code'];
+                            selectedModel = null;
+                          });
+
+                          // 🔥 هذا السطر مهم جداً
+                          await context
+                              .read<CarProvider>()
+                              .fetchModels(selectedBrandCode!);
+                        },
+
+                        validator: (v) => v == null ? 'مطلوب اختيار الشركة' : null,
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      /// الموديل بأنيميشن
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 400),
+                        child: selectedBrandCode != null
+                            ? DropdownSearch<String>(
+                          key: const ValueKey("models"),
+                          items: context.watch<CarProvider>().models,
+                          selectedItem: selectedModel,
+                          dropdownDecoratorProps: DropDownDecoratorProps(
+                            dropdownSearchDecoration: _inputDecoration('موديل السيارة'),
+                          ),
+                          popupProps: const PopupProps.menu(
+                            showSearchBox: true,
+                          ),
+                          onChanged: (value) {
+                            setState(() => selectedModel = value);
+                          },
+                          validator: (v) =>
+                          v == null ? 'مطلوب اختيار الموديل' : null,
+                        )
+                            : const SizedBox(),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      /// السنة
+                      DropdownButtonFormField<String>(
+                        decoration: _inputDecoration('سنة صنع السيارة'),
+                        items: CarData.years
+                            .map((y) => DropdownMenuItem(
+                          value: y,
+                          child: Text(y),
+                        ))
+                            .toList(),
+                        value: year,
+                        onChanged: (v) => setState(() => year = v),
+                        validator: (v) => v == null ? 'مطلوب' : null,
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      /// الرقم التسلسلي
+                      TextFormField(
+                        decoration:
+                        _inputDecoration('الرقم التسلسلي (اختياري)'),
+                        onSaved: (v) => serialNumber = v,
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      /// الصورة
+                      GestureDetector(
+                        onTap: _pickImage,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 400),
+                          height: 160,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: _pickedImage != null
+                                  ? AppColors.primary
+                                  : Colors.grey.shade300,
+                              width: 2,
+                            ),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: _pickedImage != null
+                                ? Image.file(_pickedImage!,
+                                fit: BoxFit.cover)
+                                : const Center(
+                              child: Icon(Icons.add_a_photo_outlined,
+                                  size: 40),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 30),
+
+                      /// زر الإرسال
+                      SizedBox(
+                        height: 55,
+                        child: ElevatedButton(
+                          onPressed: isSubmitting ? null : _submit,
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            backgroundColor: AppColors.primary,
+                          ),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            child: isSubmitting
+                                ? const SizedBox(
+                              key: ValueKey(1),
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
+                              ),
+                            )
+                                : const Text(
+                              'إرسال الطلب',
+                              key: ValueKey(2),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: Colors.grey.shade50,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: AppColors.primary, width: 2),
       ),
     );
   }
