@@ -2,8 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../utils/app_settings.dart';
+
 class CarProvider with ChangeNotifier {
- // غيّر حسب السيرفر
+  // غيّر حسب السيرفر
 
   List<Map<String, dynamic>> _brands = [];
   List<String> _models = [];
@@ -12,6 +13,8 @@ class CarProvider with ChangeNotifier {
   List<String> get models => _models;
 
   bool _isLoading = false;
+  bool isLoadingModels = false;
+
   bool get isLoading => _isLoading;
 
   // جلب الشركات
@@ -20,7 +23,8 @@ class CarProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      final response = await http.get(Uri.parse('${AppSettings.serverurl}/car-brands/brands'));
+      final response = await http
+          .get(Uri.parse('${AppSettings.serverurl}/car-brands/brands'));
       if (response.statusCode == 200) {
         _brands = List<Map<String, dynamic>>.from(json.decode(response.body));
         print("✅ الشركات:");
@@ -42,7 +46,8 @@ class CarProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      final response = await http.get(Uri.parse("${AppSettings.serverurl}/car-brands/brands/$brandCode/models"));
+      final response = await http.get(Uri.parse(
+          "${AppSettings.serverurl}/car-brands/brands/$brandCode/models"));
       if (response.statusCode == 200) {
         _models = List<String>.from(json.decode(response.body));
         print("✅ الموديلات لشركة $brandCode:");
