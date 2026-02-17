@@ -205,7 +205,8 @@ class _RecommendationOrdersPageState extends State<RecommendationOrdersPage> {
                       final year = (o['year'] ?? '').toString();
                       final status = (o['status'] ?? 'قيد البحث').toString();
                       final notes = (o['notes'] ?? '').toString();
-                      final img = (o['imageUrls'] ?? '').toString();
+                      final List images = o['imageUrls'] ?? [];
+                      final String img = images.isNotEmpty ? images.first.toString() : '';
 
                       return Card(
                         margin: const EdgeInsets.all(12),

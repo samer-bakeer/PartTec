@@ -149,7 +149,7 @@ class HomeProvider with ChangeNotifier {
     }
   }
 
-  bool isPrivate = true;
+  bool isPrivate = false;
   void toggleIsPrivate() {
     isPrivate = !isPrivate;
     notifyListeners();

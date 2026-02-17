@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:parttec/screens/recommendation/request_recommendation_page.dart';
 import 'package:provider/provider.dart';
 import 'package:parttec/models/part.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/parts_widgets.dart';
 import '../order/MyOrdersDashboard.dart';
 import '../part/add_part_page.dart';
@@ -549,10 +550,11 @@ class _GradientBackground extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.blue.shade700,
-            Colors.blue.shade400,
-            Colors.indigo.shade400
+            AppColors.bgGradientA,
+            AppColors.bgGradientB,
+            AppColors.bgGradientC,
           ],
+
           stops: const [0.0, 0.45, 1.0],
         ),
       ),

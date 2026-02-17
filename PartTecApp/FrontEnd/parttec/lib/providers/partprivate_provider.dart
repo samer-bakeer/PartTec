@@ -26,9 +26,10 @@ class RecommendationsProvider extends ChangeNotifier {
     isLoading = true;
     lastError = null;
     notifyListeners();
-
-    final uid = await _getUserId();
-    final role = roleOverride ?? await _getRole();
+    final uid = await SessionStore.userId();
+    final role= await SessionStore.role();
+    // final uid = await _getUserId();
+    // final role = roleOverride ?? await _getRole();
 
     print('Role: $role');
     print('UserId: $uid');
@@ -41,7 +42,7 @@ class RecommendationsProvider extends ChangeNotifier {
     }
 
     final uri = Uri.parse(
-      '${AppSettings.serverurl}/part/CompatibleSpicificOrders/$uid/$role',
+      '${AppSettings.serverurl}/part/CompatibleSpicificOrders/$uid/user',
     );
 
     try {
