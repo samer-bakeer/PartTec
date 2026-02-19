@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:parttec/screens/auth/auth_page.dart';
 import 'package:parttec/screens/employee/DeliveryDashboard.dart';
+import 'package:parttec/screens/employee/mechanic_dashboard.dart';
+import 'package:parttec/screens/supplier/seller_orders_screen.dart';
 import 'package:parttec/screens/home/home_page.dart';
 import 'package:parttec/screens/supplier/supplier_dashboard.dart';
 import 'package:parttec/utils/session_store.dart';
@@ -42,6 +44,9 @@ class _SplashPageState extends State<SplashPage> {
           break;
         case 'delivery': // ✅ التصحيح
           next = const DeliveryDashboard();
+          break;
+        case 'admin': // ✅ التصحيح
+          next =  SellerOrdersScreen();
           break;
         default:
           next = const HomePage();

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controllers/seller_orders_controller.dart';
-import '../widgets/order_card.dart';
+import '../../controllers/seller_orders_controller.dart';
+import '../../Widgets/order_card.dart';
 
 class SellerOrdersScreen extends StatelessWidget {
   final controller = Get.put(SellerOrdersController());
