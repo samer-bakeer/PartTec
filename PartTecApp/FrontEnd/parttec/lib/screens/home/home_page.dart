@@ -295,7 +295,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               setState(() => _selectedCategoryIndex = i),
                         ),
                       ),
-                     /* SliverToBoxAdapter(
+                      /* SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                           child: _SectionTitle(title: 'قطع مقترحة لك'),
@@ -450,8 +450,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const RequestRecommendationPage()))
+          Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const RequestRecommendationPage()))
               .then((_) => _refresh());
         },
         backgroundColor: Colors.blue,
