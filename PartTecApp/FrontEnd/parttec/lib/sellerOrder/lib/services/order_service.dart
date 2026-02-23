@@ -11,7 +11,6 @@ class OrderService {
         "https://parttec.onrender.com/part/orders/69542672852265760e8e691b?manufacturer=$manufacturer&status=$status";
 
     final response = await http.get(Uri.parse(url));
-
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
 
