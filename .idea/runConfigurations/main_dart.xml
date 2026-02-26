@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="main.dart" type="FlutterRunConfigurationType" factoryName="Flutter" nameIsGenerated="true">
+    <option name="attachArgs" value="flutter run" />
+    <option name="filePath" value="$PROJECT_DIR$/PartTecApp/FrontEnd/parttec/lib/main.dart" />
+    <method v="2" />
+  </configuration>
+</component>
