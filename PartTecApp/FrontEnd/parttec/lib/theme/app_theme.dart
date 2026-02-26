@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // 🎯 Primary Identity (أزرق احترافي عميق)
-  static const primary = Color(0xFF1E3A8A);       // Deep Blue
-  static const primaryDark = Color(0xFF0F172A);   // Navy
-  static const accent = Color(0xFF3B82F6);        // Electric Blue
+  static const primary = Color(0xFF1E3A8A); // Deep Blue
+  static const primaryDark = Color(0xFF0F172A); // Navy
+  static const accent = Color(0xFF3B82F6); // Electric Blue
 
   // 🌈 Gradient حديث ناعم
   static const bgGradientA = Color(0xFF1E3A8A);
@@ -67,7 +67,6 @@ ThemeData buildAppTheme() {
         color: Colors.white,
       ),
     ),
-
     textTheme: base.textTheme.copyWith(
       bodyMedium: const TextStyle(
         fontSize: 14,
@@ -85,7 +84,6 @@ ThemeData buildAppTheme() {
         color: AppColors.text,
       ),
     ),
-
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primary,
@@ -102,13 +100,11 @@ ThemeData buildAppTheme() {
         ),
       ),
     ),
-
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
       backgroundColor: AppColors.accent,
       foregroundColor: Colors.white,
       elevation: 4,
     ),
-
     chipTheme: base.chipTheme.copyWith(
       backgroundColor: AppColors.chipBg,
       side: const BorderSide(color: AppColors.chipBorder),
@@ -119,8 +115,7 @@ ThemeData buildAppTheme() {
       shape: const StadiumBorder(),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
     ),
-
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: AppColors.card,
       elevation: 6,
       shadowColor: Colors.black.withOpacity(0.08),
@@ -129,12 +124,10 @@ ThemeData buildAppTheme() {
       ),
       margin: const EdgeInsets.all(AppSpaces.sm),
     ),
-
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: Colors.white,
-      contentPadding:
-      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: AppColors.chipBorder),
