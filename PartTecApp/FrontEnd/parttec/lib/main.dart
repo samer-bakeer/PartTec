@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:parttec/sellerOrder/lib/screens/seller_orders_screen.dart';
+
 import 'package:parttec/screens/order/my_order_page.dart';
 import 'package:parttec/providers/purchases_provider.dart';
 import 'package:parttec/screens/employee/DeliveryDashboard.dart';
@@ -62,7 +62,7 @@ class MyApp extends StatelessWidget {
       title: 'PartTec',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      home: SellerOrdersScreen(),
+      home: HomePage(),
     );
   }
 }
