@@ -60,7 +60,7 @@ class MyApp extends StatelessWidget {
       title: 'PartTec',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      home: HomePage(),
+      home: SplashPage(),
     );
   }
 }

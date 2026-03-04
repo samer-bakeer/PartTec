@@ -16,6 +16,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/user_provider.dart';
+import '../../screens/profile/profile_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -419,6 +420,22 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               ),
               const Divider(),
               ListTile(
+                leading: const Icon(Icons.person),
+                title: const Text('البروفايل'),
+                onTap: () async {
+                  Navigator.pop(context);
+
+                  await context.read<UserProvider>().fetchMyProfile(); // ✅ مهم
+
+                  if (!context.mounted) return;
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ProfilePage()),
+                  );
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.logout, color: Colors.redAccent),
                 title: const Text('تسجيل الخروج'),
                 onTap: () async {
@@ -554,7 +571,6 @@ class _GradientBackground extends StatelessWidget {
             AppColors.bgGradientB,
             AppColors.bgGradientC,
           ],
-
           stops: const [0.0, 0.45, 1.0],
         ),
       ),
