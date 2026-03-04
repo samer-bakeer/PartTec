@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/parts_widgets.dart';
 import '../order/MyOrdersDashboard.dart';
 import '../part/add_part_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/home_provider.dart';
 import '../cart/cart_page.dart';
 import '../favorites/favorite_parts_page.dart';
@@ -53,6 +54,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       MaterialPageRoute(builder: (_) => const AuthPage()),
       (route) => false,
     );
+  }
+
+  Future<void> _openWhatsApp() async {
+    final Uri url = Uri.parse(
+      'https://wa.me/message/YAOUPXTYYIZ4E1',
+    );
+
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذّر فتح واتساب')),
+      );
+    }
   }
 
   Future<bool> _confirmLogout() async {
@@ -433,6 +446,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     context,
                     MaterialPageRoute(builder: (_) => const ProfilePage()),
                   );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.support_agent, color: Colors.green),
+                title: const Text('الاتصال بالدعم'),
+                subtitle: const Text('تواصل معنا عبر واتساب'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _openWhatsApp();
                 },
               ),
               ListTile(
