@@ -44,3 +44,5 @@ app.*.map.json
 # Ignore lock files except Flutter
 *.lock
 !pubspec.lock
+PartTecApp/FrontEnd/parttec/pubspec.yaml
+PartTecApp/FrontEnd/parttec/pubspec.lock
