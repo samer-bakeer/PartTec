@@ -11,9 +11,11 @@ import '../../providers/cart_provider.dart';
 import '../../models/part.dart';
 import 'part_reviews_section.dart';
 import '../../utils/session_store.dart';
+import '../../providers/currency_provider.dart';
 
 class PartDetailsPage extends StatefulWidget {
   final Part part;
+
   const PartDetailsPage({Key? key, required this.part}) : super(key: key);
 
   @override
@@ -87,11 +89,19 @@ class _PartDetailsPageState extends State<PartDetailsPage> {
                                 const SizedBox(height: 10),
                                 Row(
                                   children: [
-                                    Text('\$${widget.part.price}',
-                                        style: const TextStyle(
+                                    Consumer<CurrencyProvider>(
+                                      builder: (context, currencyProv, _) {
+                                        return Text(
+                                          currencyProv
+                                              .formatPrice(widget.part.price),
+                                          style: const TextStyle(
                                             fontSize: 22,
                                             fontWeight: FontWeight.bold,
-                                            color: AppColors.primary)),
+                                            color: AppColors.primary,
+                                          ),
+                                        );
+                                      },
+                                    ),
                                     const Spacer(),
                                     Container(
                                       padding: const EdgeInsets.symmetric(

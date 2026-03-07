@@ -33,4 +33,14 @@ class SessionStore {
     await sp.remove(_kUserId);
     await sp.remove(_kRole);
   }
+
+  static Future<void> setCurrency(String currency) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('currency', currency);
+  }
+
+  static Future<String?> getCurrency() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('currency');
+  }
 }

@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/parts_widgets.dart';
 import '../order/MyOrdersDashboard.dart';
 import '../part/add_part_page.dart';
+import 'package:parttec/providers/currency_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../providers/home_provider.dart';
 import '../cart/cart_page.dart';
@@ -237,21 +238,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         backgroundColor: Colors.transparent,
                         expandedHeight: 150,
                         leading: IconButton(
-                          icon: const Icon(Icons.menu, color: Colors.white),
-                          onPressed: () =>
-                              _scaffoldKey.currentState?.openDrawer(),
+                          icon: const Icon(Icons.shopping_cart,
+                              color: Colors.white),
+                          onPressed: () {
+                            Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => CartPage()))
+                                .then((_) => _refresh());
+                          },
                         ),
                         actions: [
-                          IconButton(
-                            icon: const Icon(Icons.shopping_cart,
-                                color: Colors.white),
-                            onPressed: () {
-                              Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (_) => CartPage()))
-                                  .then((_) => _refresh());
-                            },
+                          Builder(
+                            builder: (context) => IconButton(
+                              icon: const Icon(Icons.menu, color: Colors.white),
+                              onPressed: () =>
+                                  _scaffoldKey.currentState?.openEndDrawer(),
+                            ),
                           ),
                         ],
                         flexibleSpace: const FlexibleSpaceBar(
@@ -422,68 +425,149 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 ),
         ],
       ),
-      drawer: Drawer(
+      endDrawer: Drawer(
         child: SafeArea(
-          child: Column(
-            children: [
-              const ListTile(
-                leading: CircleAvatar(child: Icon(Icons.person)),
-                title: Text('مرحباً بك'),
-                subtitle: Text('مستخدم PartTec'),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color.fromARGB(255, 4, 49, 101),
+                  Color.fromARGB(255, 34, 89, 215)
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.person),
-                title: const Text('البروفايل'),
-                onTap: () async {
-                  Navigator.pop(context);
-
-                  await context.read<UserProvider>().fetchMyProfile(); // ✅ مهم
-
-                  if (!context.mounted) return;
-
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ProfilePage()),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.support_agent, color: Colors.green),
-                title: const Text('الاتصال بالدعم'),
-                subtitle: const Text('تواصل معنا عبر واتساب'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _openWhatsApp();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.redAccent),
-                title: const Text('تسجيل الخروج'),
-                onTap: () async {
-                  final ok = await _confirmLogout();
-                  if (ok) {
-                    Navigator.of(context).pop();
-                    await _logout();
-                  }
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.location_on, color: Colors.blue),
-                title: const Text('تثبيت موقعي في الحساب'),
-                subtitle: Text(
-                  _pinnedLocation == null
-                      ? 'غير محدّد'
-                      : 'Lat: ${_pinnedLocation!.latitude.toStringAsFixed(6)}, Lng: ${_pinnedLocation!.longitude.toStringAsFixed(6)}',
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
+                  decoration: const BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(20),
+                      bottomRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: const [
+                      CircleAvatar(
+                        radius: 30,
+                        backgroundColor: Colors.white,
+                        child: Icon(Icons.person,
+                            size: 30, color: Colors.blueAccent),
+                      ),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          'مرحباً بك\nمستخدم PartTec',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  await _pinUserLocationToProfile();
-                },
-              ),
-              const Divider(),
-              const Divider(),
-            ],
+                const SizedBox(height: 20),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    children: [
+                      _drawerItem(
+                        icon: Icons.person,
+                        title: 'البروفايل',
+                        color: Colors.orange,
+                        onTap: () async {
+                          Navigator.pop(context);
+                          await context.read<UserProvider>().fetchMyProfile();
+                          if (!context.mounted) return;
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const ProfilePage()),
+                          );
+                        },
+                      ),
+                      _drawerItem(
+                        icon: Icons.support_agent,
+                        title: 'الاتصال بالدعم',
+                        subtitle: 'تواصل معنا عبر واتساب',
+                        color: Colors.green,
+                        onTap: () {
+                          Navigator.pop(context);
+                          _openWhatsApp();
+                        },
+                      ),
+                      _drawerItem(
+                        icon: Icons.attach_money,
+                        title: 'العملة',
+                        subtitle: context.watch<CurrencyProvider>().currency,
+                        color: Colors.amber,
+                        onTap: () async {
+                          Navigator.pop(context);
+
+                          final selected = await showDialog<String>(
+                            context: context,
+                            builder: (_) => AlertDialog(
+                              title: const Text("اختر العملة"),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ListTile(
+                                    title: const Text("الدولار USD"),
+                                    onTap: () => Navigator.pop(context, "USD"),
+                                  ),
+                                  ListTile(
+                                    title: const Text("الليرة السورية SYP"),
+                                    onTap: () => Navigator.pop(context, "SYP"),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+
+                          if (selected != null) {
+                            context
+                                .read<CurrencyProvider>()
+                                .changeCurrency(selected);
+                          }
+                        },
+                      ),
+                      _drawerItem(
+                        icon: Icons.logout,
+                        title: 'تسجيل الخروج',
+                        color: Colors.redAccent,
+                        onTap: () async {
+                          final ok = await _confirmLogout();
+                          if (ok) {
+                            Navigator.of(context).pop();
+                            await _logout();
+                          }
+                        },
+                      ),
+                      _drawerItem(
+                        icon: Icons.location_on,
+                        title: 'تثبيت موقعي في الحساب',
+                        subtitle: _pinnedLocation == null
+                            ? 'غير محدّد'
+                            : 'Lat: ${_pinnedLocation!.latitude.toStringAsFixed(6)}, Lng: ${_pinnedLocation!.longitude.toStringAsFixed(6)}',
+                        color: Colors.blueAccent,
+                        onTap: () async {
+                          Navigator.of(context).pop();
+                          await _pinUserLocationToProfile();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -577,6 +661,29 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       ),
     );
   }
+}
+
+Widget _drawerItem({
+  required IconData icon,
+  required String title,
+  String? subtitle,
+  required Color color,
+  required VoidCallback onTap,
+}) {
+  return Card(
+    elevation: 3,
+    margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+    child: ListTile(
+      leading: CircleAvatar(
+        backgroundColor: color.withOpacity(0.2),
+        child: Icon(icon, color: color),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: subtitle != null ? Text(subtitle) : null,
+      onTap: onTap,
+    ),
+  );
 }
 
 class _GradientBackground extends StatelessWidget {

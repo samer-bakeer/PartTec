@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:latlong2/latlong.dart';
-
+import '../../providers/currency_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ui_kit.dart';
 import '../order/PaymentPage.dart';
@@ -10,7 +10,6 @@ import '../../providers/auth_provider.dart';
 import '../../models/cart_item.dart';
 import '../location/add_location.dart';
 import '../order/order_summary_page.dart';
-import '../../utils/session_store.dart'; // 🆕 لجلب userId
 import '../../utils/session_store.dart';
 import '../home/home_page.dart';
 import '../supplier/supplier_dashboard.dart';
@@ -41,15 +40,14 @@ class _CartPageState extends State<CartPage> {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
+    final auth = context.watch<AuthProvider>();
+    final String role = auth.role ?? '';
+    final double discountRate = role == 'mechanic' ? 0.15 : 0.0;
 
     final double total = cart.cartItems.fold<double>(
       0.0,
       (sum, CartItem item) => sum + (item.part.price * item.quantity),
     );
-
-    final auth = context.watch<AuthProvider>();
-    final String role = auth.role ?? '';
-    final double discountRate = role == 'mechanic' ? 0.15 : 0.0;
     final double discountAmount = total * discountRate;
     final double finalTotal = total - discountAmount;
 
@@ -150,11 +148,14 @@ class _CartPageState extends State<CartPage> {
                                       const SizedBox(height: 4),
                                       Row(
                                         children: [
-                                          Text(
-                                            '${part.price} \$',
-                                            style: TextStyle(
-                                              color: AppColors.success,
-                                              fontWeight: FontWeight.w700,
+                                          Consumer<CurrencyProvider>(
+                                            builder: (context, currency, _) =>
+                                                Text(
+                                              currency.formatPrice(part.price),
+                                              style: TextStyle(
+                                                color: AppColors.success,
+                                                fontWeight: FontWeight.w700,
+                                              ),
                                             ),
                                           ),
                                           const SizedBox(width: 10),
@@ -188,171 +189,176 @@ class _CartPageState extends State<CartPage> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 8,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpaces.md),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    discountRate > 0
-                                        ? 'الإجمالي قبل الخصم:'
-                                        : 'الإجمالي:',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    '\$${total.toStringAsFixed(2)}',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ],
+                      child: Consumer<CurrencyProvider>(
+                        builder: (context, currency, _) => Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 8,
+                                offset: Offset(0, 4),
                               ),
-                              if (discountRate > 0) ...[
-                                const SizedBox(height: AppSpaces.xs),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpaces.md),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
                                 Row(
                                   children: [
-                                    const Text(
-                                      'الخصم:',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
+                                    Text(
+                                      discountRate > 0
+                                          ? 'الإجمالي قبل الخصم:'
+                                          : 'الإجمالي:',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
                                       ),
                                     ),
                                     const Spacer(),
                                     Text(
-                                      '-\$${discountAmount.toStringAsFixed(2)}',
+                                      currency.formatPrice(total),
                                       style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.red,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w900,
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: AppSpaces.xs),
+                                if (discountRate > 0) ...[
+                                  const SizedBox(height: AppSpaces.xs),
+                                  Row(
+                                    children: [
+                                      const Text(
+                                        'الخصم:',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        currency.formatPrice(discountAmount),
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.red,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: AppSpaces.xs),
+                                  Row(
+                                    children: [
+                                      const Text(
+                                        'المجموع بعد الخصم:',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        currency.formatPrice(finalTotal),
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.green,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                const SizedBox(height: AppSpaces.md),
                                 Row(
                                   children: [
-                                    const Text(
-                                      'المجموع بعد الخصم:',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: () async {
+                                          final uid =
+                                              await SessionStore.userId();
+                                          if (uid == null || uid.isEmpty) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                    '⚠️ الرجاء تسجيل الدخول أولاً'),
+                                              ),
+                                            );
+                                            return;
+                                          }
+
+                                          final LatLng? location =
+                                              await Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  LocationPickerPage(
+                                                      userId: uid),
+                                            ),
+                                          );
+
+                                          if (location != null) {
+                                            _confirmOrderWithLocation(
+                                              context,
+                                              location,
+                                              'الدفع عند الاستلام',
+                                            );
+                                          }
+                                        },
+                                        icon: const Icon(Icons.delivery_dining),
+                                        label: const Text('الدفع عند الاستلام'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.orange,
+                                        ),
                                       ),
                                     ),
-                                    const Spacer(),
-                                    Text(
-                                      '\$${finalTotal.toStringAsFixed(2)}',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                        color: Colors.green,
+                                    const SizedBox(width: AppSpaces.md),
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: () async {
+                                          final uid =
+                                              await SessionStore.userId();
+                                          if (uid == null || uid.isEmpty) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                  content: Text(
+                                                      '⚠️ الرجاء تسجيل الدخول أولاً')),
+                                            );
+                                            return;
+                                          }
+
+                                          final LatLng? location =
+                                              await Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  LocationPickerPage(
+                                                      userId: uid),
+                                            ),
+                                          );
+
+                                          if (location != null) {
+                                            _confirmOrderWithLocation(
+                                              context,
+                                              location,
+                                              'الدفع بالبطاقة',
+                                            );
+                                          }
+                                        },
+                                        icon: const Icon(Icons.credit_card),
+                                        label: const Text('الدفع بالبطاقة'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.green,
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ],
-                              const SizedBox(height: AppSpaces.md),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: () async {
-                                        final uid = await SessionStore.userId();
-                                        if (uid == null || uid.isEmpty) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                  '⚠️ الرجاء تسجيل الدخول أولاً'),
-                                            ),
-                                          );
-                                          return;
-                                        }
-
-                                        final LatLng? location =
-                                            await Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => LocationPickerPage(
-                                              userId: uid,
-                                            ),
-                                          ),
-                                        );
-
-                                        if (location != null) {
-                                          _confirmOrderWithLocation(
-                                            context,
-                                            location,
-                                            'الدفع عند الاستلام',
-                                          );
-                                        }
-                                      },
-                                      icon: const Icon(Icons.delivery_dining),
-                                      label: const Text('الدفع عند الاستلام'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.orange,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: AppSpaces.md),
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: () async {
-                                        final uid = await SessionStore.userId();
-                                        if (uid == null || uid.isEmpty) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            const SnackBar(
-                                                content: Text(
-                                                    '⚠️ الرجاء تسجيل الدخول أولاً')),
-                                          );
-                                          return;
-                                        }
-
-                                        final LatLng? location =
-                                            await Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                LocationPickerPage(userId: uid),
-                                          ),
-                                        );
-
-                                        if (location != null) {
-                                          _confirmOrderWithLocation(
-                                            context,
-                                            location,
-                                            'الدفع بالبطاقة',
-                                          );
-                                        }
-                                      },
-                                      icon: const Icon(Icons.credit_card),
-                                      label: const Text('الدفع بالبطاقة'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
@@ -393,56 +399,8 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  void _confirmOrder(BuildContext context, String method) async {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('تأكيد الطلب'),
-        content: Text('هل تريد تأكيد الطلب باستخدام "$method"؟'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('إلغاء'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('تم تأكيد الطلب ✅')),
-              );
-
-              final role = await SessionStore.role();
-
-              if (context.mounted) {
-                if (role == 'seller') {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const SupplierDashboard()),
-                    (route) => false,
-                  );
-                } else {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (_) => const HomePage()),
-                    (route) => false,
-                  );
-                }
-              }
-            },
-            child: const Text('تأكيد'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _confirmOrderWithLocation(
-    BuildContext context,
-    LatLng location,
-    String method,
-  ) {
+      BuildContext context, LatLng location, String method) {
     final cart = context.read<CartProvider>();
     final total = cart.cartItems.fold<double>(
       0.0,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
+import 'providers/currency_provider.dart';
+import 'services/currency_service.dart';
 import 'package:parttec/screens/order/my_order_page.dart';
 import 'package:parttec/providers/purchases_provider.dart';
 import 'package:parttec/screens/employee/DeliveryDashboard.dart';
@@ -45,6 +46,9 @@ void main() async {
         ChangeNotifierProvider(create: (_) => RecommendationsProvider()),
         ChangeNotifierProvider(create: (_) => PurchasesProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(
+            create: (_) => CurrencyProvider()..loadCurrency()),
+        ChangeNotifierProvider(create: (_) => CurrencyProvider()),
       ],
       child: const MyApp(),
     ),
