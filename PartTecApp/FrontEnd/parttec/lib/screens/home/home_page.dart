@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:parttec/screens/recommendation/request_recommendation_page.dart';
 import 'package:provider/provider.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:parttec/models/part.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/parts_widgets.dart';
@@ -28,7 +29,8 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   int _selectedIndex = 2;
-
+  String? _locationName;
+  bool _loadingLocationName = false;
   // نستخدم نفس الكنترولر
   late final TextEditingController _serialController;
 
@@ -55,6 +57,45 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       MaterialPageRoute(builder: (_) => const AuthPage()),
       (route) => false,
     );
+  }
+
+  Future<void> _resolveLocationName(double lat, double lng) async {
+    try {
+      setState(() {
+        _loadingLocationName = true;
+      });
+
+      final placemarks = await placemarkFromCoordinates(lat, lng);
+
+      if (placemarks.isNotEmpty) {
+        final p = placemarks.first;
+
+        String name = '';
+
+        if (p.subLocality != null && p.subLocality!.isNotEmpty) {
+          name = p.subLocality!;
+        } else if (p.locality != null && p.locality!.isNotEmpty) {
+          name = p.locality!;
+        } else if (p.administrativeArea != null &&
+            p.administrativeArea!.isNotEmpty) {
+          name = p.administrativeArea!;
+        } else if (p.country != null) {
+          name = p.country!;
+        }
+
+        setState(() {
+          _locationName = name.isNotEmpty ? name : "موقع غير معروف";
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _locationName = "موقع غير معروف";
+      });
+    }
+
+    setState(() {
+      _loadingLocationName = false;
+    });
   }
 
   Future<void> _openWhatsApp() async {
@@ -94,8 +135,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     final prefs = await SharedPreferences.getInstance();
     final lat = prefs.getDouble('user_lat');
     final lng = prefs.getDouble('user_lng');
+
     if (lat != null && lng != null) {
-      setState(() => _pinnedLocation = LatLng(lat, lng));
+      setState(() {
+        _pinnedLocation = LatLng(lat, lng);
+      });
+
+      await _resolveLocationName(lat, lng);
     }
   }
 
@@ -118,8 +164,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         minChildSize: 0.6,
         builder: (ctx, controller) => ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          child: const Material(
-              color: Colors.white, child: _LocationPickerSheet()),
+          child: Material(
+            color: Colors.white,
+            child: _LocationPickerSheet(
+              initialLocation: initial,
+            ),
+          ),
         ),
       ),
     );
@@ -129,6 +179,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     final picked = await _pickLocationOnMap();
     if (picked == null) return;
     await _savePinnedLocationLocal(picked);
+    await _resolveLocationName(picked.latitude, picked.longitude);
     if (!mounted) return;
     final userProv = Provider.of<UserProvider>(context, listen: false);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -504,40 +555,48 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           _openWhatsApp();
                         },
                       ),
-                      _drawerItem(
-                        icon: Icons.attach_money,
-                        title: 'العملة',
-                        subtitle: context.watch<CurrencyProvider>().currency,
-                        color: Colors.amber,
-                        onTap: () async {
-                          Navigator.pop(context);
-
-                          final selected = await showDialog<String>(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text("اختر العملة"),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ListTile(
-                                    title: const Text("الدولار USD"),
-                                    onTap: () => Navigator.pop(context, "USD"),
+                      Card(
+                        elevation: 3,
+                        margin: const EdgeInsets.symmetric(
+                            vertical: 6, horizontal: 4),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15)),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.amber.withOpacity(0.2),
+                            child: const Icon(Icons.attach_money,
+                                color: Colors.amber),
+                          ),
+                          title: const Text(
+                            'العملة',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          trailing: Consumer<CurrencyProvider>(
+                            builder: (context, currencyProv, _) {
+                              return DropdownButton<String>(
+                                value: currencyProv.currency,
+                                underline: const SizedBox(),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: "USD",
+                                    child: Text("USD"),
                                   ),
-                                  ListTile(
-                                    title: const Text("الليرة السورية SYP"),
-                                    onTap: () => Navigator.pop(context, "SYP"),
+                                  DropdownMenuItem(
+                                    value: "SYP",
+                                    child: Text("SYP"),
                                   ),
                                 ],
-                              ),
-                            ),
-                          );
-
-                          if (selected != null) {
-                            context
-                                .read<CurrencyProvider>()
-                                .changeCurrency(selected);
-                          }
-                        },
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    context
+                                        .read<CurrencyProvider>()
+                                        .changeCurrency(value);
+                                  }
+                                },
+                              );
+                            },
+                          ),
+                        ),
                       ),
                       _drawerItem(
                         icon: Icons.logout,
@@ -555,12 +614,72 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         icon: Icons.location_on,
                         title: 'تثبيت موقعي في الحساب',
                         subtitle: _pinnedLocation == null
-                            ? 'غير محدّد'
-                            : 'Lat: ${_pinnedLocation!.latitude.toStringAsFixed(6)}, Lng: ${_pinnedLocation!.longitude.toStringAsFixed(6)}',
+                            ? 'اضغط لتحديد الموقع'
+                            : _loadingLocationName
+                                ? 'جاري تحديد المنطقة...'
+                                : (_locationName ?? 'غير معروف'),
                         color: Colors.blueAccent,
                         onTap: () async {
                           Navigator.of(context).pop();
                           await _pinUserLocationToProfile();
+                        },
+                      ),
+                      _drawerItem(
+                        icon: Icons.delete_forever,
+                        title: 'حذف الحساب',
+                        color: Colors.red,
+                        onTap: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (context) {
+                              return AlertDialog(
+                                title: const Text("تأكيد حذف الحساب"),
+                                content:
+                                    const Text("هل أنت متأكد من حذف الحساب؟"),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text("إلغاء"),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    child: const Text("حذف"),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+
+                          if (confirm == true) {
+                            final uid = await SessionStore.userId();
+
+                            if (uid == null || uid.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        "لم يتم العثور على معرف المستخدم")),
+                              );
+                              return;
+                            }
+
+                            final success = await context
+                                .read<UserProvider>()
+                                .deleteUser(uid);
+
+                            if (success) {
+                              await SessionStore.clear();
+
+                              if (!context.mounted) return;
+
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(
+                                    builder: (_) => const AuthPage()),
+                                (route) => false,
+                              );
+                            }
+                          }
                         },
                       ),
                     ],
@@ -1279,19 +1398,24 @@ class _CardHeader extends StatelessWidget {
 }
 
 class _LocationPickerSheet extends StatefulWidget {
-  const _LocationPickerSheet();
+  final LatLng initialLocation;
+
+  const _LocationPickerSheet({
+    required this.initialLocation,
+  });
   @override
   State<_LocationPickerSheet> createState() => _LocationPickerSheetState();
 }
 
 class _LocationPickerSheetState extends State<_LocationPickerSheet> {
   final MapController _map = MapController();
-  LatLng _center = const LatLng(33.5138, 36.2765);
+  late LatLng _center;
   LatLng? _picked;
   @override
   void initState() {
     super.initState();
-    _picked = _center;
+    _center = widget.initialLocation;
+    _picked = widget.initialLocation;
   }
 
   @override

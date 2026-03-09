@@ -201,4 +201,23 @@ class UserProvider with ChangeNotifier {
       return false;
     }
   }
+
+  Future<bool> deleteUser(String id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse("${AppSettings.serverurl}/user/deleteUser/$id"),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
 }
