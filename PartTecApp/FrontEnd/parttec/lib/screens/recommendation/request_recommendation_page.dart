@@ -1,12 +1,14 @@
+import 'dart:io';
+
+import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
-import '../../providers/car_provider.dart';
-import '../../theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'dart:io';
-import '../../providers/order_provider.dart';
-import 'package:dropdown_search/dropdown_search.dart';
+
 import '../../constants/car_data.dart';
+import '../../providers/car_provider.dart';
+import '../../providers/order_provider.dart';
+import '../../theme/app_theme.dart';
 
 class RequestRecommendationPage extends StatefulWidget {
   const RequestRecommendationPage({super.key});
@@ -20,10 +22,10 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
   final _formKey = GlobalKey<FormState>();
 
   String? name;
-  String? model;
   String? year;
   String? serialNumber;
   String? note;
+
   File? _pickedImage;
   String? selectedBrandCode;
   String? selectedModel;
@@ -31,21 +33,74 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CarProvider>().fetchBrands();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await context.read<CarProvider>().fetchBrands();
+      } catch (e) {
+        if (!mounted) return;
+        _showAppSnackBar(
+          'تعذر تحميل الشركات المصنعة',
+          isError: true,
+        );
+      }
     });
   }
 
+  void _showAppSnackBar(String message, {bool isError = false}) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+            color: Colors.white,
+          ),
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: isError ? Colors.redAccent : AppColors.primary,
+        elevation: 10,
+        margin: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final f = await picker.pickImage(source: ImageSource.gallery);
-    if (f != null) {
-      setState(() => _pickedImage = File(f.path));
+    try {
+      final picker = ImagePicker();
+      final f = await picker.pickImage(source: ImageSource.gallery);
+
+      if (f != null) {
+        setState(() => _pickedImage = File(f.path));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showAppSnackBar(
+        'تعذر اختيار الصورة',
+        isError: true,
+      );
     }
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (selectedBrandCode == null || selectedModel == null || year == null) {
+      _showAppSnackBar(
+        'يرجى إكمال بيانات السيارة أولاً',
+        isError: true,
+      );
+      return;
+    }
+
     _formKey.currentState!.save();
 
     final provider = context.read<OrderProvider>();
@@ -56,31 +111,37 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
         'Serial: ${serialNumber!.trim()}',
     ].join(' • ');
 
-    final ok = await provider.createSpecificOrder(
-      brandCode: selectedBrandCode!,
-      name:
-          (name == null || name!.trim().isEmpty) ? 'unspecified' : name!.trim(),
-      carModel: selectedModel!,
-      carYear: year!,
-      notes: mergedNotes.isEmpty ? null : mergedNotes,
-      image: _pickedImage,
-      serialNumber: serialNumber ?? '',
-    );
-
-    if (!mounted) return;
-
-    if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'تم إرسال الطلب${provider.lastOrderId != null ? " (#${provider.lastOrderId})" : ""}',
-          ),
-        ),
+    try {
+      final ok = await provider.createSpecificOrder(
+        brandCode: selectedBrandCode!,
+        name: (name == null || name!.trim().isEmpty)
+            ? 'unspecified'
+            : name!.trim(),
+        carModel: selectedModel!,
+        carYear: year!,
+        notes: mergedNotes.isEmpty ? null : mergedNotes,
+        image: _pickedImage,
+        serialNumber: serialNumber ?? '',
       );
-      Navigator.pop(context, true);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(provider.lastError ?? 'فشل الإرسال')),
+
+      if (!mounted) return;
+
+      if (ok) {
+        _showAppSnackBar(
+          'تم إرسال الطلب${provider.lastOrderId != null ? " (#${provider.lastOrderId})" : ""}',
+        );
+        Navigator.pop(context, true);
+      } else {
+        _showAppSnackBar(
+          provider.lastError ?? 'فشل الإرسال',
+          isError: true,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showAppSnackBar(
+        'حدث خطأ غير متوقع أثناء إرسال الطلب',
+        isError: true,
       );
     }
   }
@@ -113,8 +174,15 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
   @override
   Widget build(BuildContext context) {
     final isSubmitting = context.watch<OrderProvider>().isSubmitting;
-
     final carProvider = context.watch<CarProvider>();
+
+    final selectedBrandItem = selectedBrandCode == null
+        ? null
+        : (carProvider.brands.any((e) => e['code'] == selectedBrandCode)
+            ? carProvider.brands.firstWhere(
+                (e) => e['code'] == selectedBrandCode,
+              )
+            : null);
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -130,7 +198,6 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
             key: _formKey,
             child: Column(
               children: [
-                // ------------------ معلومات القطعة ------------------
                 _card(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,13 +220,21 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                         ),
                         onSaved: (v) => serialNumber = v,
                       ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'ملاحظات (اختياري)',
+                          prefixIcon: Icon(Icons.notes),
+                          border: OutlineInputBorder(),
+                          alignLabelWithHint: true,
+                        ),
+                        onSaved: (v) => note = v,
+                      ),
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
-                // ------------------ بيانات السيارة ------------------
                 _card(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,11 +242,8 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                       _sectionTitle("بيانات السيارة"),
                       DropdownSearch<Map<String, dynamic>>(
                         items: carProvider.brands,
-                        itemAsString: (item) => item['name'],
-                        selectedItem: selectedBrandCode == null
-                            ? null
-                            : carProvider.brands.firstWhere(
-                                (e) => e['code'] == selectedBrandCode),
+                        itemAsString: (item) => item['name']?.toString() ?? '',
+                        selectedItem: selectedBrandItem,
                         dropdownDecoratorProps: const DropDownDecoratorProps(
                           dropdownSearchDecoration: InputDecoration(
                             labelText: 'الشركة المصنعة',
@@ -179,19 +251,33 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                             border: OutlineInputBorder(),
                           ),
                         ),
-                        popupProps: PopupProps.menu(
+                        popupProps: const PopupProps.menu(
                           showSearchBox: true,
+                          searchFieldProps: TextFieldProps(
+                            decoration: InputDecoration(
+                              hintText: 'ابحث عن الشركة...',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
                         ),
                         onChanged: (value) async {
                           setState(() {
-                            selectedBrandCode = value?['code'];
+                            selectedBrandCode = value?['code']?.toString();
                             selectedModel = null;
                           });
 
-                          if (selectedBrandCode != null) {
+                          if (selectedBrandCode == null) return;
+
+                          try {
                             await context
                                 .read<CarProvider>()
                                 .fetchModels(selectedBrandCode!);
+                          } catch (e) {
+                            if (!mounted) return;
+                            _showAppSnackBar(
+                              'تعذر تحميل الموديلات',
+                              isError: true,
+                            );
                           }
                         },
                         validator: (v) =>
@@ -217,15 +303,32 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                                     border: OutlineInputBorder(),
                                   ),
                                 ),
-                                popupProps: PopupProps.menu(
+                                popupProps: const PopupProps.menu(
                                   showSearchBox: true,
+                                  searchFieldProps: TextFieldProps(
+                                    decoration: InputDecoration(
+                                      hintText: 'ابحث عن الموديل...',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
                                 ),
                                 onChanged: (value) {
                                   setState(() => selectedModel = value);
                                 },
-                                validator: (v) =>
-                                    v == null ? 'مطلوب اختيار الموديل' : null,
+                                validator: (v) => v == null || v.isEmpty
+                                    ? 'مطلوب اختيار الموديل'
+                                    : null,
                               ),
+                      if (!carProvider.isLoadingModels &&
+                          selectedBrandCode != null &&
+                          carProvider.models.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Text(
+                            'لا توجد موديلات متاحة',
+                            style: TextStyle(color: Colors.redAccent),
+                          ),
+                        ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
                         decoration: const InputDecoration(
@@ -234,20 +337,22 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                           border: OutlineInputBorder(),
                         ),
                         items: CarData.years
-                            .map((y) =>
-                                DropdownMenuItem(value: y, child: Text(y)))
+                            .map(
+                              (y) => DropdownMenuItem<String>(
+                                value: y,
+                                child: Text(y),
+                              ),
+                            )
                             .toList(),
                         value: year,
                         onChanged: (v) => setState(() => year = v),
-                        validator: (v) => v == null ? 'مطلوب' : null,
+                        validator: (v) =>
+                            v == null ? 'مطلوب اختيار السنة' : null,
                       ),
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
-                // ------------------ صورة القطعة ------------------
                 _card(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,10 +386,7 @@ class _RequestRecommendationPageState extends State<RequestRecommendationPage> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
-                // ------------------ زر الإرسال ------------------
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
