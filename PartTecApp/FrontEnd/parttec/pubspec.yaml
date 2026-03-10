@@ -1,11 +1,11 @@
 name: parttec
-description: "A new Flutter project."
-publish_to: "none"
+description: 'A new Flutter project.'
+publish_to: 'none'
 
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.3.0 <4.0.0"
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -41,6 +41,7 @@ dev_dependencies:
 dependency_overrides:
   typed_data: ^1.4.0
   meta: ^1.18.1
+  flutter_plugin_android_lifecycle: ^2.0.33
 flutter:
   uses-material-design: true
   assets:
