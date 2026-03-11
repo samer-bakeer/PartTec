@@ -91,7 +91,11 @@ class OrderProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<String?> sendOrder(List<double> coordinates, double fee) async {
+  Future<String?> sendOrder(
+      List<double> coordinates, {
+        double? fee,
+        String? locationName,
+      }) async {
     isLoading = true;
     error = null;
     orderResponse = null;
@@ -108,14 +112,18 @@ class OrderProvider with ChangeNotifier {
     final url = Uri.parse('${AppSettings.serverurl}/order/create');
 
     try {
+      final body = <String, dynamic>{
+        'userId': uid,
+        'coordinates': coordinates,
+        'fee': fee ?? 0.0,
+        if (locationName != null && locationName.trim().isNotEmpty)
+          'locationName': locationName.trim(),
+      };
+
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'userId': uid,
-          'coordinates': coordinates,
-          'fee': fee,
-        }),
+        body: jsonEncode(body),
       );
 
       final data = _decodeToMapBytes(response.bodyBytes);
@@ -124,14 +132,15 @@ class OrderProvider with ChangeNotifier {
         orderResponse = data;
 
         final orderId = (data['order']?['_id'] ??
-                data['orderId'] ??
-                data['_id'] ??
-                data['id'])
+            data['orderId'] ??
+            data['_id'] ??
+            data['id'])
             ?.toString();
 
         return orderId;
       } else {
-        error = (data['message'] as String?) ?? 'حدث خطأ أثناء إرسال الطلب';
+        error = (data['message'] as String?) ??
+            'حدث خطأ أثناء إرسال الطلب (${response.statusCode})';
         return null;
       }
     } catch (e) {
@@ -142,7 +151,6 @@ class OrderProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-
   Future<bool> createSpecificOrder({
     required String brandCode,
     required String name,

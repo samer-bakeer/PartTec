@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import '../../providers/currency_provider.dart';
 import '../../models/cart_item.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/order_provider.dart';
@@ -15,18 +15,15 @@ import '../order/PaymentPage.dart';
 class OrderSummaryPage extends StatefulWidget {
   final List<CartItem> items;
   final double total;
-
-  /// يمكن تمرير الموقع مباشرة عند فتح الصفحة
-  final LatLng? location;
-
+  final LatLng location;
   final String paymentMethod;
 
   const OrderSummaryPage({
     Key? key,
     required this.items,
     required this.total,
+    required this.location,
     required this.paymentMethod,
-    this.location,
   }) : super(key: key);
 
   @override
@@ -35,69 +32,49 @@ class OrderSummaryPage extends StatefulWidget {
 
 class _OrderSummaryPageState extends State<OrderSummaryPage> {
   bool _isSending = false;
-  bool _loadingLocation = true;
-
-  LatLng? _effectiveLocation;
+  bool _loadingLocationName = true;
+  String? _locationName;
 
   @override
   void initState() {
     super.initState();
-    _loadPinnedOrPassedLocation();
+    _loadSavedLocationName();
   }
 
-  Future<void> _loadPinnedOrPassedLocation() async {
-    // 1) إذا تم تمرير الموقع من الصفحة السابقة نستخدمه مباشرة
-    if (widget.location != null) {
-      setState(() {
-        _effectiveLocation = widget.location;
-        _loadingLocation = false;
-      });
-      return;
-    }
-
-    // 2) إذا لم يتم تمريره نحاول جلبه من SharedPreferences
+  Future<void> _loadSavedLocationName() async {
     final prefs = await SharedPreferences.getInstance();
-    final lat = prefs.getDouble('user_lat');
-    final lng = prefs.getDouble('user_lng');
+    final savedName = prefs.getString('user_location_name');
 
-    if (lat != null && lng != null) {
-      setState(() {
-        _effectiveLocation = LatLng(lat, lng);
-        _loadingLocation = false;
-      });
-    } else {
-      setState(() {
-        _effectiveLocation = null;
-        _loadingLocation = false;
-      });
-    }
+    if (!mounted) return;
+
+    setState(() {
+      _locationName = (savedName != null && savedName.trim().isNotEmpty)
+          ? savedName
+          : null;
+      _loadingLocationName = false;
+    });
   }
 
   Future<void> _confirmOrder() async {
-    if (_effectiveLocation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ لا يوجد موقع مثبت للمستخدم')),
-      );
-      return;
-    }
-
     final orderProvider = context.read<OrderProvider>();
 
     setState(() {
       _isSending = true;
     });
 
-    final coords = [
-      _effectiveLocation!.longitude,
-      _effectiveLocation!.latitude,
-    ];
+    final coords = [widget.location.longitude, widget.location.latitude];
 
-    // بما أنك تريد إلغاء حساب المسافة من OSM
-    // نجعل الرسوم 0 أو قيمة ثابتة حسب منطقك
+    // لا نحسب توصيل من OSM
     const double deliveryFee = 0.0;
 
-    final orderId = await orderProvider.sendOrder(coords, deliveryFee);
+    final prefs = await SharedPreferences.getInstance();
+    final locationName = prefs.getString('user_location_name');
 
+    final orderId = await orderProvider.sendOrder(
+      coords,
+      fee: 0.0,
+      locationName: locationName,
+    );
     if (!mounted) return;
 
     if (orderProvider.error != null || orderId == null) {
@@ -111,6 +88,8 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     }
 
     await context.read<CartProvider>().fetchCartFromServer();
+
+    if (!mounted) return;
 
     if (widget.paymentMethod == "الدفع بالبطاقة") {
       Navigator.of(context).pushReplacement(
@@ -145,6 +124,8 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final currency = context.watch<CurrencyProvider?>();
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -170,8 +151,16 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      if (_loadingLocation)
+                      const SizedBox(height: 10),
+                      const Text(
+                        'موقع التوصيل:',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      if (_loadingLocationName)
                         const Row(
                           children: [
                             SizedBox(
@@ -180,18 +169,45 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                             SizedBox(width: 8),
-                            Text('جاري تحميل الموقع المثبت...'),
+                            Text('جاري تحميل اسم الموقع...'),
                           ],
                         )
-                      else if (_effectiveLocation != null)
-                        Text(
-                          'الموقع المثبت: ${_effectiveLocation!.latitude.toStringAsFixed(5)}, ${_effectiveLocation!.longitude.toStringAsFixed(5)}',
-                          style: const TextStyle(fontSize: 15),
+                      else if (_locationName != null)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.location_on, color: Colors.blue),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _locationName!,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         )
                       else
-                        const Text(
-                          'لا يوجد موقع مثبت للمستخدم',
-                          style: TextStyle(fontSize: 15, color: Colors.red),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            'الموقع المحدد: ${widget.location.latitude.toStringAsFixed(5)}, ${widget.location.longitude.toStringAsFixed(5)}',
+                            style: const TextStyle(fontSize: 14),
+                          ),
                         ),
                     ],
                   ),
@@ -221,8 +237,9 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                             DataColumn(label: Text('السعر')),
                             DataColumn(label: Text('الإجمالي')),
                           ],
-                          rows: widget.items.map((item) {
-                            return DataRow(
+                          rows: widget.items
+                              .map(
+                                (item) => DataRow(
                               cells: [
                                 DataCell(
                                   Text(
@@ -241,8 +258,9 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                                   ),
                                 ),
                               ],
-                            );
-                          }).toList(),
+                            ),
+                          )
+                              .toList(),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -259,7 +277,9 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            widget.total.toStringAsFixed(2),
+                            currency != null
+                                ? currency.formatPrice(widget.total)
+                                : widget.total.toStringAsFixed(2),
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,

@@ -146,10 +146,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _savePinnedLocationLocal(LatLng p) async {
+  Future<void> _savePinnedLocationLocal(LatLng p, {String? locationName}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('user_lat', p.latitude);
     await prefs.setDouble('user_lng', p.longitude);
+
+    if (locationName != null && locationName.trim().isNotEmpty) {
+      await prefs.setString('user_location_name', locationName.trim());
+    }
+
     setState(() => _pinnedLocation = p);
   }
 
@@ -179,8 +184,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   Future<void> _pinUserLocationToProfile() async {
     final picked = await _pickLocationOnMap();
     if (picked == null) return;
-    await _savePinnedLocationLocal(picked);
     await _resolveLocationName(picked.latitude, picked.longitude);
+    await _savePinnedLocationLocal(
+      picked,
+      locationName: _locationName ?? 'الموقع المثبت',
+    );
     if (!mounted) return;
     final userProv = Provider.of<UserProvider>(context, listen: false);
     ScaffoldMessenger.of(context).showSnackBar(

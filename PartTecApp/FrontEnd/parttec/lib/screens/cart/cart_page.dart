@@ -9,9 +9,9 @@ import '../../widgets/ui_kit.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/cart_item.dart';
-import '../location/add_location.dart';
 import '../order/order_summary_page.dart';
 import '../../utils/session_store.dart';
+import '../location/simple_location_picker_page.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -36,64 +36,100 @@ class _CartPageState extends State<CartPage> {
     });
   }
 
-  Future<LatLng?> _getSavedPinnedLocation() async {
+  Future<Map<String, dynamic>?> _getSavedPinnedLocationData() async {
     final prefs = await SharedPreferences.getInstance();
     final lat = prefs.getDouble('user_lat');
     final lng = prefs.getDouble('user_lng');
+    final name = prefs.getString('user_location_name');
 
     if (lat != null && lng != null) {
-      return LatLng(lat, lng);
+      return {
+        'location': LatLng(lat, lng),
+        'name': (name != null && name.trim().isNotEmpty)
+            ? name
+            : 'الموقع المثبت',
+      };
     }
     return null;
   }
 
-  Future<LatLng?> _showLocationChoiceDialog(LatLng savedLocation) async {
-    return await showDialog<LatLng>(
+  Future<LatLng?> _showLocationChoiceDialog(
+      LatLng savedLocation,
+      String savedLocationName,
+      ) async {
+    return await showModalBottomSheet<LatLng>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('اختيار موقع الطلب'),
-        content: Text(
-          'يوجد لديك موقع مثبت مسبقًا:\n'
-              '${savedLocation.latitude.toStringAsFixed(5)}, ${savedLocation.longitude.toStringAsFixed(5)}\n\n'
-              'هل تريد استخدامه أم اختيار موقع جديد؟',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(null),
-            child: const Text('إلغاء'),
-          ),
-          OutlinedButton(
-            onPressed: () => Navigator.of(dialogContext).pop(savedLocation),
-            child: const Text('استخدام الموقع المثبت'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final uid = await SessionStore.userId();
-              if (uid == null || uid.isEmpty) {
-                if (!mounted) return;
-                Navigator.of(dialogContext).pop(null);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('⚠️ الرجاء تسجيل الدخول أولاً'),
-                  ),
-                );
-                return;
-              }
-
-              if (!mounted) return;
-              final LatLng? newLocation = await Navigator.of(context).push<LatLng>(
-                MaterialPageRoute(
-                  builder: (_) => LocationPickerPage(userId: uid),
-                ),
-              );
-
-              if (!mounted) return;
-              Navigator.of(dialogContext).pop(newLocation);
-            },
-            child: const Text('اختيار موقع جديد'),
-          ),
-        ],
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Wrap(
+              children: [
+                const Center(
+                  child: Text(
+                    'اختيار موقع الطلب',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.location_on, color: Colors.blue),
+                    title: const Text('استخدام الموقع المثبت'),
+                    subtitle: Text(savedLocationName),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop(savedLocation);
+                    },
+                  ),
+                ),
+                Card(
+                  child: ListTile(
+                    leading:
+                    const Icon(Icons.edit_location_alt, color: Colors.green),
+                    title: const Text('اختيار موقع جديد'),
+                    subtitle: const Text('تحديد موقع جديد عبر GPS'),
+                    onTap: () async {
+                      final result =
+                      await Navigator.of(context).push<SimpleLocationResult>(
+                        MaterialPageRoute(
+                          builder: (_) => const SimpleLocationPickerPage(),
+                        ),
+                      );
+
+                      if (result != null) {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setDouble(
+                            'user_lat', result.location.latitude);
+                        await prefs.setDouble(
+                            'user_lng', result.location.longitude);
+                        await prefs.setString(
+                            'user_location_name', result.locationName);
+
+                        if (!mounted) return;
+                        Navigator.of(sheetContext).pop(result.location);
+                      }
+                    },
+                  ),
+                ),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.close, color: Colors.red),
+                    title: const Text('إلغاء'),
+                    onTap: () => Navigator.of(sheetContext).pop(null),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -110,18 +146,29 @@ class _CartPageState extends State<CartPage> {
     }
 
     LatLng? location;
-    final savedLocation = await _getSavedPinnedLocation();
+    final savedData = await _getSavedPinnedLocationData();
 
-    if (savedLocation != null) {
+    if (savedData != null) {
       if (!mounted) return;
-      location = await _showLocationChoiceDialog(savedLocation);
+      location = await _showLocationChoiceDialog(
+        savedData['location'] as LatLng,
+        savedData['name'] as String,
+      );
     } else {
       if (!mounted) return;
-      location = await Navigator.of(context).push<LatLng>(
+      final result = await Navigator.of(context).push<SimpleLocationResult>(
         MaterialPageRoute(
-          builder: (_) => LocationPickerPage(userId: uid),
+          builder: (_) => const SimpleLocationPickerPage(),
         ),
       );
+
+      if (result != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setDouble('user_lat', result.location.latitude);
+        await prefs.setDouble('user_lng', result.location.longitude);
+        await prefs.setString('user_location_name', result.locationName);
+        location = result.location;
+      }
     }
 
     if (location == null) return;
