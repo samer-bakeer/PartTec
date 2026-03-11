@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:parttec/models/part.dart';
 import '../../theme/app_theme.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../widgets/parts_widgets.dart';
 import '../order/MyOrdersDashboard.dart';
 import '../part/add_part_page.dart';
@@ -1411,17 +1412,98 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
   final MapController _map = MapController();
   late LatLng _center;
   LatLng? _picked;
+  bool _locating = false; // حالة لجعل الواجهة تظهر أننا نحاول الحصول على الموقع
+
   @override
   void initState() {
     super.initState();
     _center = widget.initialLocation;
     _picked = widget.initialLocation;
+    // حاول الحصول على موقع الجهاز تلقائياً عند الفتح
+    _determinePositionAndMove();
+  }
+
+  Future<void> _determinePositionAndMove() async {
+    setState(() => _locating = true);
+
+    try {
+      // هل خدمة الموقع مفعّلة؟
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        // إبلاغ المستخدم أو الاستمرار بالموقع الافتراضي
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('خدمة الموقع متوقفة، الرجاء تفعيلها')),
+          );
+        }
+        setState(() => _locating = false);
+        return;
+      }
+
+      // تحقق من الأذونات
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('تم رفض إذن الموقع')),
+            );
+          }
+          setState(() => _locating = false);
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text(
+                    'تم رفض إذن الموقع نهائياً. من فضلك فعّل الإذن من إعدادات التطبيق')),
+          );
+        }
+        setState(() => _locating = false);
+        return;
+      }
+
+      // الآن نأخذ الموقع الحالي
+      final Position pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.best);
+
+      final LatLng deviceLatLng = LatLng(pos.latitude, pos.longitude);
+
+      // حدّث المركز والمؤشر
+      if (mounted) {
+        setState(() {
+          _center = deviceLatLng;
+          _picked = deviceLatLng;
+        });
+
+        // حرّك الخريطة إلى الموضع الجديد بعد قليل للتأكد أن MapController جاهز
+        Future.delayed(const Duration(milliseconds: 100), () {
+          try {
+            _map.move(_center, 14); // ضبط مستوى التكبير كما تريد
+          } catch (_) {}
+        });
+      }
+    } catch (e) {
+      // خطأ عام — يمكن إظهار رسالة للمستخدم
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذّر الحصول على موقعك: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // استبدل الشريط العلوي الحالي بعنصر يعرض حالة تحديد الموقع ويحتوي زر لإعادة المحاولة
         Container(
           height: 52,
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1430,17 +1512,43 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
             color: Colors.grey.shade100,
             border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
           ),
-          child: const Text(
-            'اضغط على الخريطة لتثبيت الدبوس، ثم اضغط حفظ',
-            style: TextStyle(fontWeight: FontWeight.w700),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'اضغط على الخريطة لتثبيت الدبوس، ثم اضغط حفظ',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (_locating)
+                Row(
+                  children: const [
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 8),
+                    Text('جاري تحديد الموقع'),
+                  ],
+                )
+              else
+                IconButton(
+                  tooltip: 'تحديد موقعي الآن',
+                  icon: const Icon(Icons.my_location),
+                  onPressed: _determinePositionAndMove,
+                ),
+            ],
           ),
         ),
+
+        // بقية واجهة الخريطة كما كانت - مع استخدام _center و _picked
         Expanded(
           child: FlutterMap(
             mapController: _map,
             options: MapOptions(
-              initialCenter: _center,
-              initialZoom: 14,
+              center: _center,
+              zoom: 14,
               onTap: (tapPos, latlng) => setState(() => _picked = latlng),
             ),
             children: [
@@ -1463,6 +1571,8 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
             ],
           ),
         ),
+
+        // أسفل الخريطة زر الحفظ/إلغاء كما لديك
         Container(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
           child: Row(
