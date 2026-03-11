@@ -1,8 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/cart_item.dart';
 import '../../providers/cart_provider.dart';
@@ -16,16 +15,18 @@ import '../order/PaymentPage.dart';
 class OrderSummaryPage extends StatefulWidget {
   final List<CartItem> items;
   final double total;
-  final LatLng location;
+
+  /// يمكن تمرير الموقع مباشرة عند فتح الصفحة
+  final LatLng? location;
 
   final String paymentMethod;
 
-  OrderSummaryPage({
+  const OrderSummaryPage({
     Key? key,
     required this.items,
     required this.total,
-    required this.location,
     required this.paymentMethod,
+    this.location,
   }) : super(key: key);
 
   @override
@@ -34,79 +35,69 @@ class OrderSummaryPage extends StatefulWidget {
 
 class _OrderSummaryPageState extends State<OrderSummaryPage> {
   bool _isSending = false;
-  String? _address;
-  bool _loadingAddress = true;
+  bool _loadingLocation = true;
+
+  LatLng? _effectiveLocation;
 
   @override
   void initState() {
     super.initState();
-    _fetchAddress();
-
-    if (widget.items.isNotEmpty) {
-      final firstPartId = widget.items.first.part.id; // 🆕 partId من أول عنصر
-      Future.microtask(() {
-        context.read<OrderProvider>().fetchDeliveryPricing(
-              partId: firstPartId,
-              toLat: widget.location.latitude,
-              toLon: widget.location.longitude,
-            );
-      });
-    }
+    _loadPinnedOrPassedLocation();
   }
 
-  Future<void> _fetchAddress() async {
-    final lat = widget.location.latitude;
-    final lon = widget.location.longitude;
-    try {
-      final uri = Uri.parse(
-          'https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lon&format=jsonv2');
-      final response = await http.get(uri,
-          headers: {'User-Agent': 'parttec-app/1.0 (https://example.com)'});
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          _address = data['display_name']?.toString();
-          _loadingAddress = false;
-        });
-      } else {
-        setState(() {
-          _address = null;
-          _loadingAddress = false;
-        });
-      }
-    } catch (_) {
+  Future<void> _loadPinnedOrPassedLocation() async {
+    // 1) إذا تم تمرير الموقع من الصفحة السابقة نستخدمه مباشرة
+    if (widget.location != null) {
       setState(() {
-        _address = null;
-        _loadingAddress = false;
+        _effectiveLocation = widget.location;
+        _loadingLocation = false;
+      });
+      return;
+    }
+
+    // 2) إذا لم يتم تمريره نحاول جلبه من SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final lat = prefs.getDouble('user_lat');
+    final lng = prefs.getDouble('user_lng');
+
+    if (lat != null && lng != null) {
+      setState(() {
+        _effectiveLocation = LatLng(lat, lng);
+        _loadingLocation = false;
+      });
+    } else {
+      setState(() {
+        _effectiveLocation = null;
+        _loadingLocation = false;
       });
     }
   }
 
   Future<void> _confirmOrder() async {
+    if (_effectiveLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('⚠️ لا يوجد موقع مثبت للمستخدم')),
+      );
+      return;
+    }
+
     final orderProvider = context.read<OrderProvider>();
-
-    if (orderProvider.loadingDelivery) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⏳ يرجى انتظار حساب تكلفة التوصيل...')),
-      );
-      return;
-    }
-
-    final deliveryFee = orderProvider.deliveryPrice;
-    if (deliveryFee == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ فشل في جلب تكلفة التوصيل')),
-      );
-      return;
-    }
 
     setState(() {
       _isSending = true;
     });
 
-    final coords = [widget.location.longitude, widget.location.latitude];
+    final coords = [
+      _effectiveLocation!.longitude,
+      _effectiveLocation!.latitude,
+    ];
+
+    // بما أنك تريد إلغاء حساب المسافة من OSM
+    // نجعل الرسوم 0 أو قيمة ثابتة حسب منطقك
+    const double deliveryFee = 0.0;
 
     final orderId = await orderProvider.sendOrder(coords, deliveryFee);
+
     if (!mounted) return;
 
     if (orderProvider.error != null || orderId == null) {
@@ -121,14 +112,12 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
 
     await context.read<CartProvider>().fetchCartFromServer();
 
-    final totalWithDelivery = (widget.total + deliveryFee).toInt();
-
     if (widget.paymentMethod == "الدفع بالبطاقة") {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => PaymentTestPage(
             orderId: orderId,
-            amount: (widget.total + deliveryFee).toInt(),
+            amount: widget.total.toInt(),
           ),
         ),
       );
@@ -143,12 +132,12 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       if (role == 'seller') {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const SupplierDashboard()),
-          (route) => false,
+              (route) => false,
         );
       } else {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomePage()),
-          (route) => false,
+              (route) => false,
         );
       }
     }
@@ -156,8 +145,6 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final orderProv = context.watch<OrderProvider>();
-
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -169,7 +156,6 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 🗺️ كرت الموقع
               Card(
                 margin: const EdgeInsets.only(bottom: 16),
                 child: Padding(
@@ -184,8 +170,8 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      if (_loadingAddress)
+                      const SizedBox(height: 8),
+                      if (_loadingLocation)
                         const Row(
                           children: [
                             SizedBox(
@@ -194,25 +180,24 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                             SizedBox(width: 8),
-                            Text('جاري جلب الموقع...'),
+                            Text('جاري تحميل الموقع المثبت...'),
                           ],
                         )
-                      else if (_address != null)
+                      else if (_effectiveLocation != null)
                         Text(
-                          'الموقع: $_address',
+                          'الموقع المثبت: ${_effectiveLocation!.latitude.toStringAsFixed(5)}, ${_effectiveLocation!.longitude.toStringAsFixed(5)}',
                           style: const TextStyle(fontSize: 15),
                         )
                       else
-                        Text(
-                          'إحداثيات الموقع: ${widget.location.latitude.toStringAsFixed(5)}, ${widget.location.longitude.toStringAsFixed(5)}',
-                          style: const TextStyle(fontSize: 15),
+                        const Text(
+                          'لا يوجد موقع مثبت للمستخدم',
+                          style: TextStyle(fontSize: 15, color: Colors.red),
                         ),
                     ],
                   ),
                 ),
               ),
 
-              // 💰 كرت الفاتورة
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(12),
@@ -222,7 +207,9 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                       const Text(
                         'تفاصيل الفاتورة',
                         style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       SingleChildScrollView(
@@ -234,73 +221,52 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                             DataColumn(label: Text('السعر')),
                             DataColumn(label: Text('الإجمالي')),
                           ],
-                          rows: widget.items
-                              .map(
-                                (item) => DataRow(
-                                  cells: [
-                                    DataCell(Text(item.part.name,
-                                        overflow: TextOverflow.ellipsis)),
-                                    DataCell(Text(item.quantity.toString())),
-                                    DataCell(Text(
-                                        item.part.price.toStringAsFixed(2))),
-                                    DataCell(Text(
-                                        (item.part.price * item.quantity)
-                                            .toStringAsFixed(2))),
-                                  ],
+                          rows: widget.items.map((item) {
+                            return DataRow(
+                              cells: [
+                                DataCell(
+                                  Text(
+                                    item.part.name,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                              )
-                              .toList(),
+                                DataCell(Text(item.quantity.toString())),
+                                DataCell(
+                                  Text(item.part.price.toStringAsFixed(2)),
+                                ),
+                                DataCell(
+                                  Text(
+                                    (item.part.price * item.quantity)
+                                        .toStringAsFixed(2),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      if (orderProv.loadingDelivery) ...[
-                        const SizedBox(height: 8),
-                        const Row(
-                          children: [
-                            SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                      const SizedBox(height: 12),
+                      const Divider(),
+                      Row(
+                        children: [
+                          const Spacer(),
+                          const Text(
+                            'المجموع النهائي:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
                             ),
-                            SizedBox(width: 8),
-                            Text('جاري حساب تكلفة التوصيل...'),
-                          ],
-                        ),
-                      ] else if (orderProv.deliveryPrice != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                            'المسافة: ${orderProv.distanceKm!.toStringAsFixed(2)} كم'),
-                        const SizedBox(height: 4),
-                        Text(
-                            'الوقت المقدر: ${orderProv.durationMin!.toStringAsFixed(1)} دقيقة'),
-                        const SizedBox(height: 4),
-                        Text(
-                          'تكلفة التوصيل: ${orderProv.deliveryPrice!.toStringAsFixed(2)} USD',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        const Divider(),
-                        Row(
-                          children: [
-                            const Spacer(),
-                            const Text(
-                              'المجموع مع التوصيل:',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            widget.total.toStringAsFixed(2),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              (widget.total + orderProv.deliveryPrice!)
-                                  .toStringAsFixed(2),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                          ],
-                        ),
-                      ] else if (orderProv.deliveryError != null) ...[
-                        Text('⚠️ ${orderProv.deliveryError}'),
-                      ] else ...[
-                        const Text('لا يوجد بيانات للتوصيل'),
-                      ],
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -312,8 +278,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed:
-                          _isSending ? null : () => Navigator.pop(context),
+                      onPressed: _isSending ? null : () => Navigator.pop(context),
                       child: const Text('إلغاء'),
                     ),
                   ),
@@ -327,13 +292,13 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                       ),
                       child: _isSending
                           ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                color: Colors.white,
-                              ),
-                            )
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
+                      )
                           : const Text('تأكيد الطلب'),
                     ),
                   ),

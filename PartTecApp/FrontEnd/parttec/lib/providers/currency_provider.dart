@@ -33,7 +33,7 @@ class CurrencyProvider with ChangeNotifier {
   String formatPrice(double price) {
     if (_currency == "SYP") {
       final syp = price * _rate;
-      return "${syp.toStringAsFixed(0)} ل.س";
+      return "${syp.toStringAsFixed(0)}ل.س جديدة";
     }
 
     return "\$${price.toStringAsFixed(2)}";
