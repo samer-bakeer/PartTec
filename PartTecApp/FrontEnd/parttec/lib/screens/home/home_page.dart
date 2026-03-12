@@ -217,6 +217,54 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
+  void _showCircularProfilePreview(ImageProvider imageProvider) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(24),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            Center(
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4,
+                child: Container(
+                  width: 260,
+                  height: 260,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    image: DecorationImage(
+                      image: imageProvider,
+                      fit: BoxFit.cover,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 20,
+                        offset: Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(
+                Icons.close,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _pinUserLocationToProfile() async {
     final picked = await _pickLocationOnMap();
     if (picked == null) return;
@@ -249,11 +297,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     super.initState();
     _serialController = TextEditingController();
     _loadPinnedLocation();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refresh();
-      Provider.of<HomeProvider>(context, listen: false).fetchRecommendations();
-      context.read<UserProvider>().fetchMyProfile();
-      context.read<UserProvider>().fetchProfileImage();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _refresh();
+      await Provider.of<HomeProvider>(context, listen: false)
+          .fetchRecommendations();
+
+      final userProv = context.read<UserProvider>();
+      await userProv.fetchMyProfile();
+      await userProv.fetchProfileImage();
     });
   }
 
@@ -572,26 +624,35 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     builder: (context, userProvider, _) {
                       final userName =
                           userProvider.profile?.name?.trim().isNotEmpty == true
-                              ? userProvider.profile!.name!
+                              ? userProvider.profile!.name!.trim()
                               : 'مستخدم PartTec';
+
                       final imageUrl = userProvider.profile?.imageUrl;
+                      final hasImage =
+                          imageUrl != null && imageUrl.trim().isNotEmpty;
+
+                      final ImageProvider? avatarProvider =
+                          hasImage ? NetworkImage(imageUrl) : null;
 
                       return Row(
                         children: [
-                          CircleAvatar(
-                            radius: 30,
-                            backgroundColor: Colors.white,
-                            backgroundImage:
-                                (imageUrl != null && imageUrl.trim().isNotEmpty)
-                                    ? NetworkImage(imageUrl)
-                                    : null,
-                            child: (imageUrl == null || imageUrl.trim().isEmpty)
-                                ? const Icon(
-                                    Icons.person,
-                                    size: 30,
-                                    color: Colors.blueAccent,
-                                  )
-                                : null,
+                          GestureDetector(
+                            onTap: avatarProvider == null
+                                ? null
+                                : () =>
+                                    _showCircularProfilePreview(avatarProvider),
+                            child: CircleAvatar(
+                              radius: 30,
+                              backgroundColor: Colors.white,
+                              backgroundImage: avatarProvider,
+                              child: avatarProvider == null
+                                  ? const Icon(
+                                      Icons.person,
+                                      size: 30,
+                                      color: Colors.blueAccent,
+                                    )
+                                  : null,
+                            ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(

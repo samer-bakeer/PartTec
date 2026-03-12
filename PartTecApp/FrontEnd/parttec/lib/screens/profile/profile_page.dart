@@ -80,6 +80,43 @@ class _ProfilePageState extends State<ProfilePage> {
     super.dispose();
   }
 
+  void _showProfileImagePreview(ImageProvider imageProvider) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            Center(
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image(
+                    image: imageProvider,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(
+                Icons.close,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickImage() async {
     final x = await _picker.pickImage(
       source: ImageSource.gallery,
@@ -122,9 +159,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final userProv = context.watch<UserProvider>();
-
-    // ✅ صورة: لو في صورة من السيرفر استخدمها، وإلا لو اختار صورة محلياً استخدم FileImage
-    ImageProvider? avatarProvider;
+    ImageProvider<Object>? avatarProvider;
     if (_pickedImageFile != null) {
       avatarProvider = FileImage(_pickedImageFile!);
     } else if (userProv.profile?.imageUrl != null &&
@@ -157,13 +192,21 @@ class _ProfilePageState extends State<ProfilePage> {
                         Stack(
                           alignment: Alignment.bottomRight,
                           children: [
-                            CircleAvatar(
-                              radius: 54,
-                              backgroundColor: Colors.grey.shade200,
-                              backgroundImage: avatarProvider,
-                              child: avatarProvider == null
-                                  ? const Icon(Icons.person, size: 56)
-                                  : null,
+                            GestureDetector(
+                              onTap: () {
+                                final previewImage = avatarProvider;
+                                if (previewImage != null) {
+                                  _showProfileImagePreview(previewImage);
+                                }
+                              },
+                              child: CircleAvatar(
+                                radius: 54,
+                                backgroundColor: Colors.grey.shade200,
+                                backgroundImage: avatarProvider,
+                                child: avatarProvider == null
+                                    ? const Icon(Icons.person, size: 56)
+                                    : null,
+                              ),
                             ),
                             Material(
                               color: Colors.blue,
