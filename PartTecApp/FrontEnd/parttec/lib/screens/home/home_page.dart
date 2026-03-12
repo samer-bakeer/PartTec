@@ -61,39 +61,74 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Future<void> _resolveLocationName(double lat, double lng) async {
-    try {
-      setState(() {
-        _loadingLocationName = true;
-      });
+    if (!mounted) return;
 
-      final placemarks = await placemarkFromCoordinates(lat, lng);
+    setState(() {
+      _loadingLocationName = true;
+    });
+
+    try {
+      final placemarks = await placemarkFromCoordinates(
+        lat,
+        lng,
+      );
+
+      String name = 'الموقع المحدد';
 
       if (placemarks.isNotEmpty) {
         final p = placemarks.first;
 
-        String name = '';
+        final List<String> parts = [];
 
-        if (p.subLocality != null && p.subLocality!.isNotEmpty) {
-          name = p.subLocality!;
-        } else if (p.locality != null && p.locality!.isNotEmpty) {
-          name = p.locality!;
-        } else if (p.administrativeArea != null &&
-            p.administrativeArea!.isNotEmpty) {
-          name = p.administrativeArea!;
-        } else if (p.country != null) {
-          name = p.country!;
+        if (p.administrativeArea != null &&
+            p.administrativeArea!.trim().isNotEmpty) {
+          parts.add(p.administrativeArea!.trim());
         }
 
-        setState(() {
-          _locationName = name.isNotEmpty ? name : "موقع غير معروف";
-        });
+        if (p.locality != null && p.locality!.trim().isNotEmpty) {
+          parts.add(p.locality!.trim());
+        }
+
+        if (p.subLocality != null && p.subLocality!.trim().isNotEmpty) {
+          parts.add(p.subLocality!.trim());
+        }
+
+        if (p.street != null && p.street!.trim().isNotEmpty) {
+          parts.add(p.street!.trim());
+        }
+
+        if (p.thoroughfare != null && p.thoroughfare!.trim().isNotEmpty) {
+          parts.add(p.thoroughfare!.trim());
+        }
+
+        if (p.subThoroughfare != null && p.subThoroughfare!.trim().isNotEmpty) {
+          parts.add('رقم ${p.subThoroughfare!.trim()}');
+        }
+
+        final List<String> uniqueParts = [];
+        for (final part in parts) {
+          if (!uniqueParts.contains(part)) {
+            uniqueParts.add(part);
+          }
+        }
+
+        if (uniqueParts.isNotEmpty) {
+          name = uniqueParts.join(' - ');
+        }
       }
-    } catch (e) {
+
+      if (!mounted) return;
       setState(() {
-        _locationName = "موقع غير معروف";
+        _locationName = name;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _locationName = 'الموقع المحدد';
       });
     }
 
+    if (!mounted) return;
     setState(() {
       _loadingLocationName = false;
     });
@@ -146,7 +181,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _savePinnedLocationLocal(LatLng p, {String? locationName}) async {
+  Future<void> _savePinnedLocationLocal(LatLng p,
+      {String? locationName}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('user_lat', p.latitude);
     await prefs.setDouble('user_lng', p.longitude);
@@ -216,6 +252,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refresh();
       Provider.of<HomeProvider>(context, listen: false).fetchRecommendations();
+      context.read<UserProvider>().fetchMyProfile();
+      context.read<UserProvider>().fetchProfileImage();
     });
   }
 
@@ -295,17 +333,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         pinned: true,
                         stretch: true,
                         elevation: 0,
-                        backgroundColor: Colors.transparent,
+                        scrolledUnderElevation: 0,
+                        backgroundColor: AppColors.bgGradientA,
+                        surfaceTintColor: Colors.transparent,
                         expandedHeight: 150,
                         leading: IconButton(
                           icon: const Icon(Icons.shopping_cart,
                               color: Colors.white),
                           onPressed: () {
                             Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) => CartPage()))
-                                .then((_) => _refresh());
+                              context,
+                              MaterialPageRoute(builder: (_) => CartPage()),
+                            ).then((_) => _refresh());
                           },
                         ),
                         actions: [
@@ -317,12 +356,30 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                             ),
                           ),
                         ],
-                        flexibleSpace: const FlexibleSpaceBar(
-                          titlePadding: EdgeInsetsDirectional.only(
-                              start: 16, bottom: 12, end: 16),
-                          title: Text('قطع الغيار',
-                              style: TextStyle(fontWeight: FontWeight.w700)),
-                          background: _HeaderGlow(),
+                        flexibleSpace: FlexibleSpaceBar(
+                          titlePadding: const EdgeInsetsDirectional.only(
+                            start: 16,
+                            bottom: 12,
+                            end: 16,
+                          ),
+                          title: const Text(
+                            'قطع الغيار',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          background: Container(
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  AppColors.bgGradientA,
+                                  AppColors.bgGradientB,
+                                  AppColors.bgGradientC,
+                                ],
+                              ),
+                            ),
+                            child: const _HeaderGlow(),
+                          ),
                         ),
                       ),
                       SliverPersistentHeader(
@@ -511,27 +568,46 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       bottomRight: Radius.circular(20),
                     ),
                   ),
-                  child: Row(
-                    children: const [
-                      CircleAvatar(
-                        radius: 30,
-                        backgroundColor: Colors.white,
-                        child: Icon(Icons.person,
-                            size: 30, color: Colors.blueAccent),
-                      ),
-                      SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          'مرحباً بك\nمستخدم PartTec',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            height: 1.3,
+                  child: Consumer<UserProvider>(
+                    builder: (context, userProvider, _) {
+                      final userName =
+                          userProvider.profile?.name?.trim().isNotEmpty == true
+                              ? userProvider.profile!.name!
+                              : 'مستخدم PartTec';
+                      final imageUrl = userProvider.profile?.imageUrl;
+
+                      return Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 30,
+                            backgroundColor: Colors.white,
+                            backgroundImage:
+                                (imageUrl != null && imageUrl.trim().isNotEmpty)
+                                    ? NetworkImage(imageUrl)
+                                    : null,
+                            child: (imageUrl == null || imageUrl.trim().isEmpty)
+                                ? const Icon(
+                                    Icons.person,
+                                    size: 30,
+                                    color: Colors.blueAccent,
+                                  )
+                                : null,
                           ),
-                        ),
-                      ),
-                    ],
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              'مرحباً بك\n$userName',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -1126,7 +1202,7 @@ class _MyCarsSection extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               SizedBox(
-                height: 260,
+                height: 300,
                 child: TabBarView(
                   physics: const BouncingScrollPhysics(),
                   children: [
@@ -1172,13 +1248,15 @@ class _CarsSliderState extends State<_CarsSlider> {
               final c = widget.cars[i];
               final title = '${c['manufacturer']} ${c['model']}';
               final sub = 'سنة ${c['year']} • ${c['fuel'] ?? 'غير محدد'}';
+
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
                 margin: EdgeInsets.only(
-                    right: 10,
-                    left: i == 0 ? 2 : 0,
-                    bottom: _index == i ? 0 : 10,
-                    top: _index == i ? 0 : 10),
+                  right: 10,
+                  left: i == 0 ? 2 : 0,
+                  bottom: _index == i ? 0 : 10,
+                  top: _index == i ? 0 : 10,
+                ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18),
                   gradient: const LinearGradient(
@@ -1188,58 +1266,84 @@ class _CarsSliderState extends State<_CarsSlider> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                        color: Colors.black.withOpacity(0.12),
-                        blurRadius: 18,
-                        offset: const Offset(0, 10))
+                      color: Colors.black.withOpacity(0.12),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    )
                   ],
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width: 66,
-                        height: 66,
+                        width: 60,
+                        height: 60,
                         decoration: const BoxDecoration(
-                            color: Colors.white24, shape: BoxShape.circle),
-                        child: const Icon(Icons.directions_car,
-                            color: Colors.white, size: 34),
+                          color: Colors.white24,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.directions_car,
+                          color: Colors.white,
+                          size: 30,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  title,
+                                  maxLines: 2,
+                                  softWrap: true,
+                                  overflow: TextOverflow.visible,
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w900,
-                                    fontSize: 16)),
-                            const SizedBox(height: 6),
-                            Text(sub,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                    fontSize: 16,
+                                    height: 1.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  sub,
+                                  maxLines: 2,
+                                  softWrap: true,
+                                  overflow: TextOverflow.visible,
+                                  style: const TextStyle(
                                     color: Colors.white70,
-                                    fontWeight: FontWeight.w700)),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: -6,
-                              children: [
-                                if (c['vin'] != null &&
-                                    (c['vin'] as String).isNotEmpty)
-                                  _pill('VIN: ${c['vin']}'),
-                                if (c['engine'] != null)
-                                  _pill('محرك: ${c['engine']}'),
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  children: [
+                                    if (c['vin'] != null &&
+                                        (c['vin'] as String).isNotEmpty)
+                                      _pill('VIN: ${c['vin']}'),
+                                    if (c['engine'] != null &&
+                                        c['engine']
+                                            .toString()
+                                            .trim()
+                                            .isNotEmpty)
+                                      _pill('محرك: ${c['engine']}'),
+                                  ],
+                                ),
                               ],
-                            ),
-                          ],
+                            );
+                          },
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -1369,13 +1473,25 @@ class _CarFormCard extends StatelessWidget {
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.save),
                 label: const Text('حفظ السيارة'),
-                onPressed: () => provider.submitCar(context),
+                onPressed: () async {
+                  final provider = context.read<HomeProvider>();
+                  final result = await provider.submitCar();
+
+                  if (!context.mounted) return;
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(result ?? '✅ تم حفظ السيارة بنجاح'),
+                    ),
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
               ),
             ),

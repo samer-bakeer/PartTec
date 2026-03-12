@@ -43,6 +43,7 @@ class _ProfilePageState extends State<ProfilePage> {
       // 1) إذا عندك دالة تجيب بيانات المستخدم من السيرفر/Session نادِها هون
       //    (إذا أصلاً بياناتك محمّلة مسبقاً احذف السطر التالي)
       await userProv.fetchMyProfile(); // ✅ اكتبها عندك بالـ UserProvider (تحت)
+      await userProv.fetchProfileImage();
 
       // 2) عبّي الحقول مرة وحدة
       _fillFromProviderIfNeeded();
@@ -126,7 +127,10 @@ class _ProfilePageState extends State<ProfilePage> {
     ImageProvider? avatarProvider;
     if (_pickedImageFile != null) {
       avatarProvider = FileImage(_pickedImageFile!);
-    } else if (userProv.profile != null) {
+    } else if (userProv.profile?.imageUrl != null &&
+        userProv.profile!.imageUrl!.trim().isNotEmpty) {
+      avatarProvider = NetworkImage(userProv.profile!.imageUrl!);
+    } else {
       avatarProvider = null;
     }
 

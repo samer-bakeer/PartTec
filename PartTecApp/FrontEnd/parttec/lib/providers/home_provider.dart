@@ -195,23 +195,17 @@ class HomeProvider with ChangeNotifier {
     }
   }
 
-  void submitCar(BuildContext context) async {
+  Future<String?> submitCar() async {
     final uid = await SessionStore.userId();
     if (uid == null || uid.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('⚠️ يرجى تسجيل الدخول أولاً')),
-      );
-      return;
+      return '⚠️ يرجى تسجيل الدخول أولاً';
     }
 
     if (selectedMake == null ||
         selectedModel == null ||
         selectedYear == null ||
         selectedFuel == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('يرجى تحديد جميع البيانات')),
-      );
-      return;
+      return 'يرجى تحديد جميع البيانات';
     }
 
     try {
@@ -227,21 +221,20 @@ class HomeProvider with ChangeNotifier {
       );
 
       if (response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ تم حفظ السيارة بنجاح')),
-        );
-        selectedMake = selectedModel = selectedYear = selectedFuel = null;
+        selectedMake = null;
+        selectedModel = null;
+        selectedYear = null;
+        selectedFuel = null;
+
         await fetchUserCars();
+        notifyListeners();
+
+        return null; // null = نجاح
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ فشل في الحفظ: ${response.body}')),
-        );
+        return '❌ فشل في الحفظ: ${response.body}';
       }
     } catch (e) {
-      print(e);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ خطأ في الاتصال بالخادم')),
-      );
+      return '❌ خطأ في الاتصال بالخادم';
     }
   }
 

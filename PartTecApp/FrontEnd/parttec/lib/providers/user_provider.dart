@@ -15,17 +15,20 @@ class UserProfile {
   final String? name;
   final String? phone;
   final String? email;
+  final String? imageUrl;
 
   UserProfile({
     this.name,
     this.phone,
     this.email,
+    this.imageUrl,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> j) => UserProfile(
         name: j['name']?.toString(),
         phone: j['phone']?.toString(),
         email: j['email']?.toString(),
+        imageUrl: j['profileImage']?.toString(),
       );
 
   UserProfile copyWith({
@@ -40,6 +43,7 @@ class UserProfile {
         name: name ?? this.name,
         phone: phone ?? this.phone,
         email: email ?? this.email,
+        imageUrl: imageUrl ?? this.imageUrl,
       );
 }
 
@@ -70,12 +74,13 @@ class UserProvider with ChangeNotifier {
             data['userData'] != null &&
             data['userData'] is List &&
             data['userData'].isNotEmpty) {
-          final userJson = data['userData'][0]; // ✅ مهم جداً
+          final userJson = data['userData'][0];
 
           profile = UserProfile(
             name: userJson['name'],
             email: userJson['email'],
-            phone: userJson['phoneNumber'], // ✅ انتبه الاسم phoneNumber
+            phone: userJson['phoneNumber'],
+            imageUrl: userJson['profileImage'],
           );
         } else {
           throw Exception('لا يوجد بيانات مستخدم');
@@ -93,7 +98,6 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  // ✅ تحديث بيانات البروفايل + صورة (multipart)
   Future<bool> updateProfile({
     required String name,
     required String phone,
@@ -106,7 +110,14 @@ class UserProvider with ChangeNotifier {
 
     try {
       final uid = await SessionStore.userId();
+      if (uid == null || uid.isEmpty) {
+        error = 'لم يتم العثور على userId';
+        isSaving = false;
+        notifyListeners();
+        return false;
+      }
 
+      // 1) تحديث البيانات النصية
       final url =
           Uri.parse('${AppSettings.serverurl}/user/updateUserData/$uid');
 
@@ -116,29 +127,63 @@ class UserProvider with ChangeNotifier {
         body: jsonEncode({
           "name": name,
           "email": email,
-          "phoneNumber": phone, // ✅ مهم الاسم مطابق للسيرفر
+          "phoneNumber": phone,
         }),
       );
 
-      print("STATUS: ${res.statusCode}");
-      print("BODY: ${res.body}");
+      if (!(res.statusCode >= 200 && res.statusCode < 300)) {
+        error = "فشل تعديل البيانات";
+        isSaving = false;
+        notifyListeners();
+        return false;
+      }
 
-      if (res.statusCode >= 200 && res.statusCode < 300) {
-        final data = jsonDecode(res.body);
+      final data = jsonDecode(res.body);
+      String? imageUrl = profile?.imageUrl;
 
-        if (data["success"] == true) {
-          final userJson = data["user"];
+      // 2) رفع الصورة إذا اختار المستخدم صورة
+      if (imageFile != null) {
+        final uploadUrl =
+            Uri.parse('${AppSettings.serverurl}/user/addImageProfile/$uid');
 
-          profile = UserProfile(
-            name: userJson["name"],
-            email: userJson["email"],
-            phone: userJson["phoneNumber"],
-          );
+        final request = http.MultipartRequest('POST', uploadUrl);
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'image',
+            imageFile.path,
+            contentType: MediaType('image', 'jpeg'),
+          ),
+        );
 
-          isSaving = false;
-          notifyListeners();
-          return true;
+        final streamed = await request.send();
+        final uploadRes = await http.Response.fromStream(streamed);
+
+        if (uploadRes.statusCode >= 200 && uploadRes.statusCode < 300) {
+          final uploadData = jsonDecode(uploadRes.body);
+
+          if (uploadData['user'] != null &&
+              uploadData['user']['profileImage'] != null) {
+            imageUrl = uploadData['user']['profileImage'].toString();
+          } else if (uploadData['profileImage'] != null) {
+            imageUrl = uploadData['profileImage'].toString();
+          }
         }
+      }
+
+      // 3) تحديث البيانات محليًا
+      if (data["success"] == true) {
+        final userJson = data["user"] ?? {};
+
+        profile = UserProfile(
+          name: userJson["name"] ?? name,
+          email: userJson["email"] ?? email,
+          phone: userJson["phoneNumber"] ?? phone,
+          imageUrl: imageUrl,
+        );
+
+        isSaving = false;
+        notifyListeners();
+        return true;
       }
 
       error = "فشل التعديل";
@@ -151,6 +196,28 @@ class UserProvider with ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  Future<void> fetchProfileImage() async {
+    try {
+      final uid = await SessionStore.userId();
+      if (uid == null || uid.isEmpty) return;
+
+      final url =
+          Uri.parse('${AppSettings.serverurl}/user/getProfileImage/$uid');
+      final res = await http.get(url);
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final data = jsonDecode(res.body);
+
+        if (data['success'] == true && data['profileImage'] != null) {
+          profile = (profile ?? UserProfile()).copyWith(
+            imageUrl: data['profileImage'].toString(),
+          );
+          notifyListeners();
+        }
+      }
+    } catch (_) {}
   }
 
   // ✅ هذه هي الدالة التي تحتاجها HomePage لتثبيت موقع المستخدم
