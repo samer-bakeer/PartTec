@@ -26,7 +26,6 @@ import 'screens/supplier/supplier_dashboard.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   final auth = AuthProvider();
   await auth.loadSession();
 

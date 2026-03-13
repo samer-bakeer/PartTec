@@ -369,119 +369,122 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     final provider = Provider.of<HomeProvider>(context);
     return Scaffold(
       key: _scaffoldKey,
-      body: Stack(
-        children: [
-          const _GradientBackground(),
-          (provider.isLoadingAvailable && provider.availableParts.isEmpty)
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: _refresh,
-                  displacement: 140,
-                  strokeWidth: 2.8,
-                  child: CustomScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    slivers: [
-                      SliverAppBar(
-                        pinned: true,
-                        stretch: true,
-                        elevation: 0,
-                        scrolledUnderElevation: 0,
-                        backgroundColor: AppColors.bgGradientA,
-                        surfaceTintColor: Colors.transparent,
-                        expandedHeight: 150,
-                        leading: IconButton(
-                          icon: const Icon(Icons.shopping_cart,
-                              color: Colors.white),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => CartPage()),
-                            ).then((_) => _refresh());
-                          },
-                        ),
-                        actions: [
-                          Builder(
-                            builder: (context) => IconButton(
-                              icon: const Icon(Icons.menu, color: Colors.white),
-                              onPressed: () =>
-                                  _scaffoldKey.currentState?.openEndDrawer(),
-                            ),
+      body: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Stack(
+          children: [
+            const _GradientBackground(),
+            (provider.isLoadingAvailable && provider.availableParts.isEmpty)
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _refresh,
+                    displacement: 140,
+                    strokeWidth: 2.8,
+                    child: CustomScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      slivers: [
+                        SliverAppBar(
+                          pinned: true,
+                          stretch: true,
+                          elevation: 0,
+                          scrolledUnderElevation: 0,
+                          backgroundColor: AppColors.bgGradientA,
+                          surfaceTintColor: Colors.transparent,
+                          expandedHeight: 150,
+                          leading: IconButton(
+                            icon: const Icon(Icons.shopping_cart,
+                                color: Colors.white),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => CartPage()),
+                              ).then((_) => _refresh());
+                            },
                           ),
-                        ],
-                        flexibleSpace: FlexibleSpaceBar(
-                          titlePadding: const EdgeInsetsDirectional.only(
-                            start: 16,
-                            bottom: 12,
-                            end: 16,
-                          ),
-                          title: const Text(
-                            'قطع الغيار',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          background: Container(
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  AppColors.bgGradientA,
-                                  AppColors.bgGradientB,
-                                  AppColors.bgGradientC,
-                                ],
+                          actions: [
+                            Builder(
+                              builder: (context) => IconButton(
+                                icon:
+                                    const Icon(Icons.menu, color: Colors.white),
+                                onPressed: () =>
+                                    _scaffoldKey.currentState?.openEndDrawer(),
                               ),
                             ),
-                            child: const _HeaderGlow(),
-                          ),
-                        ),
-                      ),
-                      SliverPersistentHeader(
-                        pinned: true,
-                        delegate: _SearchBarHeader(
-                          minExtent: 128,
-                          maxExtent: 128,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                child: _FloatingSearchBar(
-                                  controller: _serialController,
-                                  onSearch: _performSearch,
-                                  onClear: _clearSearch,
-                                  onChanged: (_) =>
-                                      setState(() {}), // لتحديث زر المسح
+                          ],
+                          flexibleSpace: FlexibleSpaceBar(
+                            titlePadding: const EdgeInsetsDirectional.only(
+                              start: 16,
+                              bottom: 12,
+                              end: 16,
+                            ),
+                            title: const Text(
+                              '',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            background: Container(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    AppColors.bgGradientA,
+                                    AppColors.bgGradientB,
+                                    AppColors.bgGradientC,
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                child: _VisibilityToggle(
-                                  isPrivate: provider.isPrivate,
-                                  onChanged: (val) =>
-                                      provider.toggleIsPrivate(),
-                                ),
-                              ),
-                            ],
+                              child: const _HeaderGlow(),
+                            ),
                           ),
                         ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                          child: _SectionTitle(title: 'الفئات'),
+                        SliverPersistentHeader(
+                          pinned: true,
+                          delegate: _SearchBarHeader(
+                            minExtent: 128,
+                            maxExtent: 128,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16),
+                                  child: _FloatingSearchBar(
+                                    controller: _serialController,
+                                    onSearch: _performSearch,
+                                    onClear: _clearSearch,
+                                    onChanged: (_) =>
+                                        setState(() {}), // لتحديث زر المسح
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16),
+                                  child: _VisibilityToggle(
+                                    isPrivate: provider.isPrivate,
+                                    onChanged: (val) =>
+                                        provider.toggleIsPrivate(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: _CategoryChipsBar(
-                          categories: _categories,
-                          selectedIndex: _selectedCategoryIndex,
-                          onChanged: (i) =>
-                              setState(() => _selectedCategoryIndex = i),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                            child: _SectionTitle(title: ''),
+                          ),
                         ),
-                      ),
-                      /* SliverToBoxAdapter(
+                        SliverToBoxAdapter(
+                          child: _CategoryChipsBar(
+                            categories: _categories,
+                            selectedIndex: _selectedCategoryIndex,
+                            onChanged: (i) =>
+                                setState(() => _selectedCategoryIndex = i),
+                          ),
+                        ),
+                        /* SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                           child: _SectionTitle(title: 'قطع مقترحة لك'),
@@ -520,79 +523,92 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           },
                         ),
                       ),*/
-                      if (_searchQuery.isNotEmpty) ...[
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 10),
-                            child: _SectionTitle(
-                              title: 'نتائج البحث',
-                              trailing: Text(
-                                '${_searchResults.length} نتيجة',
-                                style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontWeight: FontWeight.w600),
+                        if (_searchQuery.isNotEmpty) ...[
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
+                              child: _SectionTitle(
+                                title: 'نتائج البحث',
+                                trailing: Text(
+                                  '${_searchResults.length} نتيجة',
+                                  style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w600),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        SliverToBoxAdapter(
-                          child: SizedBox(
-                            height: 260,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              reverse: true,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              itemCount: _searchResults.length,
-                              itemBuilder: (_, i) {
+                          SliverToBoxAdapter(
+                            child: SizedBox(
+                              height: 260,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                reverse: true,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                itemCount: _searchResults.length,
+                                itemBuilder: (_, i) {
+                                  return SizedBox(
+                                      width: 180,
+                                      child: PartCard(part: _searchResults[i]));
+                                },
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          SliverToBoxAdapter(
+                            child: Builder(
+                              builder: (context) {
+                                final parts =
+                                    _filterByCategory(provider.availableParts);
+
+                                if (parts.isEmpty) {
+                                  return Container(
+                                    height: 180,
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      "لا يوجد قطع",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.grey[600],
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  );
+                                }
+
                                 return SizedBox(
-                                    width: 180,
-                                    child: PartCard(part: _searchResults[i]));
+                                  height: 260,
+                                  child: ListView.builder(
+                                    scrollDirection: Axis.horizontal,
+                                    reverse: true,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
+                                    itemCount: parts.length,
+                                    itemBuilder: (_, i) {
+                                      return SizedBox(
+                                        width: 180,
+                                        child: PartCard(part: parts[i]),
+                                      );
+                                    },
+                                  ),
+                                );
                               },
                             ),
                           ),
-                        ),
-                      ] else ...[
+                        ],
                         SliverToBoxAdapter(
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                            child: _SectionTitle(
-                                title: _categories[_selectedCategoryIndex]
-                                    ['label'] as String),
-                          ),
-                        ),
-                        SliverToBoxAdapter(
-                          child: SizedBox(
-                            height: 260,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              reverse: true,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              itemCount:
-                                  _filterByCategory(provider.availableParts)
-                                      .length,
-                              itemBuilder: (_, i) {
-                                final part = _filterByCategory(
-                                    provider.availableParts)[i];
-                                return SizedBox(
-                                    width: 180, child: PartCard(part: part));
-                              },
-                            ),
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
+                            child: _MyCarsSection(),
                           ),
                         ),
                       ],
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
-                          child: _MyCarsSection(),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-        ],
+          ],
+        ),
       ),
       endDrawer: Drawer(
         child: SafeArea(

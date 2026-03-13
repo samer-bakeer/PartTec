@@ -1,13 +1,10 @@
-// ✅ ProfilePage.dart (عدل عندك هالصفحة بهذا الشكل)
-// الفكرة: نعبّي الكنترولرز أول ما نوصل بيانات المستخدم من UserProvider
-// وبهيك الاسم/الرقم/الإيميل بيجوا من التسجيل (المحفوظين بالسيرفر/Session) وقابلين للتعديل.
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/user_provider.dart';
+import '../../theme/app_theme.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -23,8 +20,7 @@ class _ProfilePageState extends State<ProfilePage> {
   late final TextEditingController _phone;
   late final TextEditingController _email;
 
-  bool _filledOnce =
-      false; // ✅ حتى ما يعبي كل rebuild ويرجع يمسح تعديل المستخدم
+  bool _filledOnce = false;
 
   final ImagePicker _picker = ImagePicker();
   File? _pickedImageFile;
@@ -36,30 +32,26 @@ class _ProfilePageState extends State<ProfilePage> {
     _phone = TextEditingController();
     _email = TextEditingController();
 
-    // ✅ نعبيهم بعد أول فريم لما يكون provider جاهز
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final userProv = context.read<UserProvider>();
 
-      // 1) إذا عندك دالة تجيب بيانات المستخدم من السيرفر/Session نادِها هون
-      //    (إذا أصلاً بياناتك محمّلة مسبقاً احذف السطر التالي)
-      await userProv.fetchMyProfile(); // ✅ اكتبها عندك بالـ UserProvider (تحت)
+      await userProv.fetchMyProfile();
       await userProv.fetchProfileImage();
 
-      // 2) عبّي الحقول مرة وحدة
       _fillFromProviderIfNeeded();
     });
   }
 
   void _fillFromProviderIfNeeded() {
     final userProv = context.read<UserProvider>();
-    final u = userProv.profile; // ✅ عدّل حسب اسم الموديل عندك (User / Profile)
+    final u = userProv.profile;
 
     if (_filledOnce) return;
     if (u == null) return;
 
-    _name.text = (u.name ?? '').toString();
-    _phone.text = (u.phone ?? '').toString();
-    _email.text = (u.email ?? '').toString();
+    _name.text = (u.name ?? '');
+    _phone.text = (u.phone ?? '');
+    _email.text = (u.email ?? '');
 
     _filledOnce = true;
     setState(() {});
@@ -68,7 +60,6 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // ✅ في حال provider صار جاهز لاحقاً
     _fillFromProviderIfNeeded();
   }
 
@@ -78,43 +69,6 @@ class _ProfilePageState extends State<ProfilePage> {
     _phone.dispose();
     _email.dispose();
     super.dispose();
-  }
-
-  void _showProfileImagePreview(ImageProvider imageProvider) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black87,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(16),
-        child: Stack(
-          alignment: Alignment.topRight,
-          children: [
-            Center(
-              child: InteractiveViewer(
-                minScale: 0.8,
-                maxScale: 4,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: Image(
-                    image: imageProvider,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-            ),
-            IconButton(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(
-                Icons.close,
-                color: Colors.white,
-                size: 28,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Future<void> _pickImage() async {
@@ -143,6 +97,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
 
     if (!mounted) return;
+
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
     if (ok) {
@@ -159,132 +114,164 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final userProv = context.watch<UserProvider>();
-    ImageProvider<Object>? avatarProvider;
+
+    ImageProvider? avatarProvider;
+
     if (_pickedImageFile != null) {
       avatarProvider = FileImage(_pickedImageFile!);
     } else if (userProv.profile?.imageUrl != null &&
         userProv.profile!.imageUrl!.trim().isNotEmpty) {
       avatarProvider = NetworkImage(userProv.profile!.imageUrl!);
-    } else {
-      avatarProvider = null;
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('الملف الشخصي'),
-        centerTitle: true,
-      ),
-      body: userProv.isLoadingProfile
+        body: Directionality(
+      textDirection: TextDirection.rtl,
+      child: userProv.isLoadingProfile
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Card(
-                elevation: 6,
-                shadowColor: Colors.black12,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        Stack(
-                          alignment: Alignment.bottomRight,
-                          children: [
-                            GestureDetector(
-                              onTap: () {
-                                final previewImage = avatarProvider;
-                                if (previewImage != null) {
-                                  _showProfileImagePreview(previewImage);
-                                }
-                              },
-                              child: CircleAvatar(
-                                radius: 54,
-                                backgroundColor: Colors.grey.shade200,
-                                backgroundImage: avatarProvider,
-                                child: avatarProvider == null
-                                    ? const Icon(Icons.person, size: 56)
-                                    : null,
-                              ),
-                            ),
-                            Material(
-                              color: Colors.blue,
-                              shape: const CircleBorder(),
-                              child: InkWell(
-                                customBorder: const CircleBorder(),
-                                onTap: _pickImage,
-                                child: const Padding(
-                                  padding: EdgeInsets.all(10),
-                                  child: Icon(Icons.camera_alt,
-                                      color: Colors.white, size: 20),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _name,
-                          decoration: const InputDecoration(
-                            labelText: 'الاسم',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.badge),
-                          ),
-                          validator: (v) => (v == null || v.trim().isEmpty)
-                              ? 'الاسم مطلوب'
-                              : null,
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _phone,
-                          decoration: const InputDecoration(
-                            labelText: 'رقم التواصل',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.phone),
-                          ),
-                          keyboardType: TextInputType.phone,
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _email,
-                          decoration: const InputDecoration(
-                            labelText: 'البريد الإلكتروني',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.email),
-                          ),
-                          keyboardType: TextInputType.emailAddress,
-                          validator: (v) {
-                            final s = (v ?? '').trim();
-                            if (s.isEmpty) return null;
-                            final ok = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
-                                .hasMatch(s);
-                            return ok ? null : 'بريد غير صالح';
-                          },
-                        ),
-                        const SizedBox(height: 18),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: ElevatedButton.icon(
-                            onPressed: userProv.isSaving ? null : _save,
-                            icon: userProv.isSaving
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.save),
-                            label: const Text('حفظ التعديلات'),
-                          ),
-                        ),
+          : Column(
+              children: [
+                /// HEADER
+                Container(
+                  height: 140,
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.bgGradientA,
+                        AppColors.bgGradientB,
+                        AppColors.bgGradientC,
                       ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.vertical(
+                      bottom: Radius.circular(30),
+                    ),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      "الملف الشخصي",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
-              ),
+
+                const SizedBox(height: 10),
+
+                /// PROFILE IMAGE
+                Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    CircleAvatar(
+                      radius: 55,
+                      backgroundColor: Colors.grey.shade200,
+                      backgroundImage: avatarProvider,
+                      child: avatarProvider == null
+                          ? const Icon(Icons.person, size: 50)
+                          : null,
+                    ),
+                    GestureDetector(
+                      onTap: _pickImage,
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: AppColors.bgGradientB,
+                        child: const Icon(Icons.edit,
+                            color: Colors.white, size: 18),
+                      ),
+                    )
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
+                /// NAME
+                Text(
+                  _name.text.isEmpty ? "اسم المستخدم" : _name.text,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                /// CARD
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          /// NAME
+                          TextFormField(
+                            controller: _name,
+                            decoration: const InputDecoration(
+                              prefixIcon: Icon(Icons.person),
+                              labelText: "الاسم",
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          /// PHONE
+                          TextFormField(
+                            controller: _phone,
+                            decoration: const InputDecoration(
+                              prefixIcon: Icon(Icons.phone),
+                              labelText: "رقم التواصل",
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          /// EMAIL
+                          TextFormField(
+                            controller: _email,
+                            decoration: const InputDecoration(
+                              prefixIcon: Icon(Icons.email),
+                              labelText: "البريد الإلكتروني",
+                            ),
+                          ),
+
+                          const Spacer(),
+
+                          /// SAVE BUTTON
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.bgGradientB,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              onPressed: userProv.isSaving ? null : _save,
+                              child: userProv.isSaving
+                                  ? const CircularProgressIndicator(
+                                      color: Colors.white)
+                                  : const Text("حفظ التعديلات"),
+                            ),
+                          )
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              ],
             ),
-    );
+    ));
   }
 }
