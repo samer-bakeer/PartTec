@@ -44,7 +44,7 @@ class PartCard extends StatelessWidget {
                 children: [
                   /// صورة القطعة
                   Expanded(
-                    flex: 6,
+                    flex: 10,
                     child: Image.network(
                       (part.imageUrl != null && part.imageUrl.isNotEmpty)
                           ? part.imageUrl
@@ -58,7 +58,7 @@ class PartCard extends StatelessWidget {
                   ),
 
                   Expanded(
-                    flex: 4,
+                    flex: 6,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 6),
