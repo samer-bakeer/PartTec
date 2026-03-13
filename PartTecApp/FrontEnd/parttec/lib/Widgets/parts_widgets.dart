@@ -30,102 +30,160 @@ class PartCard extends StatelessWidget {
         );
       },
       child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
+        elevation: 6,
+        shadowColor: Colors.black12,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            children: [
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  /// صورة القطعة
                   Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        (part.imageUrl != null && part.imageUrl.isNotEmpty)
-                            ? part.imageUrl
-                            : AppImages
-                                .defaultPart, // 🔥 صورة افتراضية من AppTheme
+                    flex: 6,
+                    child: Image.network(
+                      (part.imageUrl != null && part.imageUrl.isNotEmpty)
+                          ? part.imageUrl
+                          : AppImages.defaultPart,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Image.network(
+                        AppImages.defaultPart,
                         fit: BoxFit.cover,
-                        width: double.infinity,
-                        errorBuilder: (_, __, ___) => Image.network(
-                          AppImages.defaultPart,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                        ),
-                        loadingBuilder: (ctx, child, progress) {
-                          if (progress == null) return child;
-                          return const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          );
-                        },
                       ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    part.name,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Row(
-                    children: [
-                      const SizedBox(width: 15),
-                      Expanded(
-                        child: Text(
-                          part.manufacturer ?? '',
-                          style: const TextStyle(
-                              color: AppColors.textWeak, fontSize: 12),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+
+                  Expanded(
+                    flex: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          /// اسم القطعة
+                          Text(
+                            part.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+
+                          const SizedBox(height: 4),
+
+                          /// الشركة المصنعة
+                          Row(
+                            children: [
+                              const Icon(Icons.precision_manufacturing,
+                                  size: 14, color: AppColors.textWeak),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  part.manufacturer ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textWeak,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const Spacer(),
+
+                          /// الموديل والسنة
+                          Row(
+                            children: [
+                              /// الموديل
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    part.model,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(width: 6),
+
+                              /// السنة
+                              if (part.year != 0)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    part.year.toString(),
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          part.model,
-                          style: const TextStyle(
-                              fontSize: 13, color: AppColors.text),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        part.year != 0 ? part.year.toString() : '',
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.textWeak),
-                      ),
-                    ],
-                  ),
+                    ),
+                  )
                 ],
               ),
-            ),
-            Positioned(
-              top: 6,
-              right: 6,
-              child: IconButton(
-                icon: Icon(
-                  isFav ? Icons.favorite : Icons.favorite_border,
-                  color: isFav ? AppColors.error : AppColors.textWeak,
-                ),
-                onPressed: () async {
-                  await favProvider.toggleFavorite(part);
-                  final nowFav = favProvider.isFavorite(part.id);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        nowFav
-                            ? 'تمت الإضافة إلى المفضلة'
-                            : 'تمت الإزالة من المفضلة',
-                      ),
-                      duration: const Duration(seconds: 1),
+
+              /// زر المفضلة
+              Positioned(
+                top: 6,
+                left: 6,
+                child: Material(
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(20),
+                  child: IconButton(
+                    iconSize: 20,
+                    icon: Icon(
+                      isFav ? Icons.favorite : Icons.favorite_border,
+                      color: isFav ? AppColors.error : AppColors.textWeak,
                     ),
-                  );
-                },
+                    onPressed: () async {
+                      await favProvider.toggleFavorite(part);
+                      final nowFav = favProvider.isFavorite(part.id);
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            nowFav
+                                ? 'تمت الإضافة إلى المفضلة'
+                                : 'تمت الإزالة من المفضلة',
+                          ),
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

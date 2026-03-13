@@ -390,7 +390,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           scrolledUnderElevation: 0,
                           backgroundColor: AppColors.bgGradientA,
                           surfaceTintColor: Colors.transparent,
-                          expandedHeight: 150,
+                          expandedHeight: 50,
                           leading: IconButton(
                             icon: const Icon(Icons.shopping_cart,
                                 color: Colors.white),
@@ -1035,11 +1035,12 @@ class _SearchBarHeader extends SliverPersistentHeaderDelegate {
   @override
   double get maxExtent => _maxExtent;
   @override
+  @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
       height: maxExtent,
-      color: Colors.white.withOpacity(0.95),
+      color: Colors.white,
       alignment: Alignment.center,
       child: child,
     );
@@ -1070,7 +1071,7 @@ class _FloatingSearchBar extends StatelessWidget {
     return Material(
       elevation: 10,
       borderRadius: BorderRadius.circular(16),
-      color: Colors.white,
+      color: Colors.white.withOpacity(0.9),
       child: TextField(
         controller: controller,
         textInputAction: TextInputAction.search,
@@ -1124,50 +1125,66 @@ class _SectionTitle extends StatelessWidget {
 class _VisibilityToggle extends StatelessWidget {
   final bool isPrivate;
   final ValueChanged<bool> onChanged;
-  const _VisibilityToggle({required this.isPrivate, required this.onChanged});
+
+  const _VisibilityToggle({
+    required this.isPrivate,
+    required this.onChanged,
+  });
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 36,
+      height: 42,
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          _segBtn(
-              label: 'عامة',
-              selected: !isPrivate,
-              onTap: () => onChanged(false)),
-          _segBtn(
-              label: 'خاصة', selected: isPrivate, onTap: () => onChanged(true)),
+          _segmentButton(
+            label: 'كل القطع',
+            selected: !isPrivate,
+            onTap: () => onChanged(false),
+          ),
+          _segmentButton(
+            label: 'قطع لسيارتي',
+            selected: isPrivate,
+            onTap: () => onChanged(true),
+          ),
         ],
       ),
     );
   }
 
-  Expanded _segBtn(
-      {required String label,
-      required bool selected,
-      required VoidCallback onTap}) {
+  Widget _segmentButton({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
     return Expanded(
-      child: InkWell(
+      child: GestureDetector(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: const Duration(milliseconds: 250),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected ? const Color(0x1A2196F3) : Colors.transparent,
+            color: selected ? Colors.blue : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
-          padding: const EdgeInsets.symmetric(vertical: 6),
           child: Text(
             label,
             style: TextStyle(
-              color: selected ? Colors.blue : Colors.black87,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.bold,
+              color: selected ? Colors.white : Colors.black87,
+              fontSize: 13,
             ),
           ),
         ),

@@ -3,6 +3,7 @@ import '../../theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../../providers/favorites_provider.dart';
 import 'package:parttec/widgets/parts_widgets.dart' as pw;
+import '../../widgets/parts_widgets.dart';
 
 class FavoritePartsPage extends StatefulWidget {
   const FavoritePartsPage({Key? key}) : super(key: key);
@@ -58,7 +59,7 @@ class _FavoritePartsPageState extends State<FavoritePartsPage> {
               }
 
               // شبكة القطع المفضلة
-              return pw.PartsGrid(parts: favProv.favorites);
+              return PartsGrid(parts: favProv.favorites);
             },
           ),
         ),
