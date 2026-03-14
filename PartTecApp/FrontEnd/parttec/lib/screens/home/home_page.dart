@@ -501,7 +501,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                 setState(() => _selectedCategoryIndex = i),
                           ),
                         ),
-
                         if (_searchQuery.isNotEmpty) ...[
                           SliverToBoxAdapter(
                             child: Padding(
@@ -1300,8 +1299,8 @@ class _MyCarsSection extends StatelessWidget {
                     tabs: [
                       Tab(icon: Icon(Icons.directions_car)),
                       Tab(
-                          icon: Icon(Icons.add_circle_outline),
-                        ),
+                        icon: Icon(Icons.add_circle_outline),
+                      ),
                     ],
                   ),
                 ),
