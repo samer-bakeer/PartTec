@@ -32,6 +32,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   int _selectedIndex = 2;
   String? _locationName;
   bool _loadingLocationName = false;
+  late AnimationController _fabController;
+  late Animation<double> _fabAnimation;
   // نستخدم نفس الكنترولر
   late final TextEditingController _serialController;
 
@@ -295,6 +297,21 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+
+    _fabController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+
+    _fabAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
+      CurvedAnimation(
+        parent: _fabController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    _fabController.repeat(reverse: true);
+
     _serialController = TextEditingController();
     _loadPinnedLocation();
 
@@ -312,6 +329,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   @override
   void dispose() {
     _serialController.dispose();
+    _fabController.dispose();
     super.dispose();
   }
 
@@ -391,24 +409,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           backgroundColor: AppColors.bgGradientA,
                           surfaceTintColor: Colors.transparent,
                           expandedHeight: 50,
-                          leading: IconButton(
-                            icon: const Icon(Icons.shopping_cart,
-                                color: Colors.white),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => CartPage()),
-                              ).then((_) => _refresh());
-                            },
+                          leading: Builder(
+                            builder: (context) => IconButton(
+                              icon: const Icon(Icons.menu, color: Colors.white),
+                              onPressed: () =>
+                                  _scaffoldKey.currentState?.openEndDrawer(),
+                            ),
                           ),
                           actions: [
-                            Builder(
-                              builder: (context) => IconButton(
-                                icon:
-                                    const Icon(Icons.menu, color: Colors.white),
-                                onPressed: () =>
-                                    _scaffoldKey.currentState?.openEndDrawer(),
-                              ),
+                            IconButton(
+                              icon: const Icon(Icons.shopping_cart,
+                                  color: Colors.white),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => CartPage()),
+                                ).then((_) => _refresh());
+                              },
                             ),
                           ],
                           flexibleSpace: FlexibleSpaceBar(
@@ -852,17 +869,47 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const RequestRecommendationPage()))
-              .then((_) => _refresh());
-        },
-        backgroundColor: Colors.blue,
-        icon: const Icon(Icons.add),
-        label: const Text('طلب  قطعة'),
+      floatingActionButton: ScaleTransition(
+        scale: _fabAnimation,
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF1E88E5),
+                Color(0xFF1565C0),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blue.withOpacity(0.45),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: FloatingActionButton(
+            heroTag: "request_part",
+            tooltip: "طلب قطعة",
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const RequestRecommendationPage(),
+                ),
+              ).then((_) => _refresh());
+            },
+            child: const Icon(
+              Icons.add,
+              size: 30,
+              color: Colors.white,
+            ),
+          ),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: _buildBottomAppBar(),
