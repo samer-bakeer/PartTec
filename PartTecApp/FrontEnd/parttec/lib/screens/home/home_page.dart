@@ -501,45 +501,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                 setState(() => _selectedCategoryIndex = i),
                           ),
                         ),
-                        /* SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                          child: _SectionTitle(title: 'قطع مقترحة لك'),
-                        ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: Consumer<HomeProvider>(
-                          builder: (context, prov, _) {
-                            if (prov.isLoadingRecommendations) {
-                              return const Center(
-                                  child: CircularProgressIndicator());
-                            }
-                            if (prov.recommendedParts.isEmpty) {
-                              return Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Text('لا توجد اقتراحات حالياً',
-                                    style: TextStyle(color: Colors.grey[600])),
-                              );
-                            }
-                            return SizedBox(
-                              height: 260,
-                              child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                reverse: true,
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                itemCount: prov.recommendedParts.length,
-                                itemBuilder: (_, i) {
-                                  return SizedBox(
-                                      width: 180,
-                                      child: PartCard(
-                                          part: prov.recommendedParts[i]));
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                      ),*/
+
                         if (_searchQuery.isNotEmpty) ...[
                           SliverToBoxAdapter(
                             child: Padding(
@@ -1322,28 +1284,31 @@ class _MyCarsSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const _CardHeader(title: 'سياراتي'),
-              const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(12)),
-                child: const TabBar(
-                  labelColor: Colors.blue,
-                  unselectedLabelColor: Colors.black54,
-                  indicator: BoxDecoration(
-                      color: Color(0x1A2196F3),
-                      borderRadius: BorderRadius.all(Radius.circular(10))),
-                  tabs: [
-                    Tab(icon: Icon(Icons.directions_car), text: 'قائمتي'),
-                    Tab(
-                        icon: Icon(Icons.add_circle_outline),
-                        text: 'إضافة/تحديث'),
-                  ],
+              const SizedBox(height: 5),
+              SizedBox(
+                height: 60,
+                child: Container(
+                  decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12)),
+                  child: const TabBar(
+                    labelColor: Colors.blue,
+                    unselectedLabelColor: Colors.black54,
+                    indicator: BoxDecoration(
+                        color: Color(0x1A2196F3),
+                        borderRadius: BorderRadius.all(Radius.circular(10))),
+                    tabs: [
+                      Tab(icon: Icon(Icons.directions_car)),
+                      Tab(
+                          icon: Icon(Icons.add_circle_outline),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               SizedBox(
-                height: 300,
+                height: 150,
                 child: TabBarView(
                   physics: const BouncingScrollPhysics(),
                   children: [
@@ -1388,7 +1353,7 @@ class _CarsSliderState extends State<_CarsSlider> {
             itemBuilder: (_, i) {
               final c = widget.cars[i];
               final title = '${c['manufacturer']} ${c['model']}';
-              final sub = 'سنة ${c['year']} • ${c['fuel'] ?? 'غير محدد'}';
+              final sub = ' ${c['year']} ';
 
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
