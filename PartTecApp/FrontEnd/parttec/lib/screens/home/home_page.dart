@@ -15,6 +15,7 @@ import '../cart/cart_page.dart';
 import '../favorites/favorite_parts_page.dart';
 import '../order/user_delivered_orders_page.dart';
 import '../auth/auth_page.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 import '../../utils/session_store.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -36,6 +37,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   late Animation<double> _fabAnimation;
   // نستخدم نفس الكنترولر
   late final TextEditingController _serialController;
+  int _currentPart = 0;
 
   // حقول البحث الجديدة
   String _searchQuery = '';
@@ -469,8 +471,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                     controller: _serialController,
                                     onSearch: _performSearch,
                                     onClear: _clearSearch,
-                                    onChanged: (_) =>
-                                        setState(() {}), // لتحديث زر المسح
+                                    onChanged: (_) => _performSearch(),
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -522,7 +523,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               height: 260,
                               child: ListView.builder(
                                 scrollDirection: Axis.horizontal,
-                                reverse: true,
+                                reverse: false,
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 16),
                                 itemCount: _searchResults.length,
@@ -555,23 +556,29 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                     ),
                                   );
                                 }
-
                                 return SizedBox(
-                                  height: 260,
-                                  child: ListView.builder(
-                                    scrollDirection: Axis.horizontal,
-                                    reverse: true,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16),
-                                    itemCount: parts.length,
-                                    itemBuilder: (_, i) {
-                                      return SizedBox(
-                                        width: 180,
-                                        child: PartCard(part: parts[i]),
-                                      );
-                                    },
-                                  ),
-                                );
+                                    height: 260,
+                                    child: CarouselSlider.builder(
+                                        itemCount: parts.length,
+                                        itemBuilder: (context, i, realIndex) {
+                                          return Center(
+                                            child: SizedBox(
+                                              width: 180,
+                                              child: PartCard(part: parts[i]),
+                                            ),
+                                          );
+                                        },
+                                        options: CarouselOptions(
+                                          height: 260,
+                                          autoPlay: true,
+                                          autoPlayInterval:
+                                              const Duration(seconds: 3),
+                                          autoPlayAnimationDuration:
+                                              const Duration(milliseconds: 800),
+                                          autoPlayCurve: Curves.easeInOut,
+                                          enlargeCenterPage: true,
+                                          viewportFraction: 0.5,
+                                        )));
                               },
                             ),
                           ),
@@ -668,7 +675,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 const SizedBox(height: 20),
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
                     children: [
                       _drawerItem(
                         icon: Icons.person,
@@ -1337,7 +1344,7 @@ class _CarsSlider extends StatefulWidget {
 }
 
 class _CarsSliderState extends State<_CarsSlider> {
-  final PageController _page = PageController(viewportFraction: 0.86);
+  final PageController _page = PageController(viewportFraction: 0.6);
   int _index = 0;
   @override
   Widget build(BuildContext context) {

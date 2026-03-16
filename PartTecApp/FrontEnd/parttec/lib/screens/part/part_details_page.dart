@@ -355,42 +355,55 @@ class _BottomAddToCartState extends State<_BottomAddToCart> {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.chipBorder),
-          ),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.remove),
-                onPressed: _quantity > 1 ? _decrease : null,
-              ),
-              Text(
-                '$_quantity',
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              IconButton(
-                icon: const Icon(Icons.add),
-                onPressed: _quantity < widget.part.count ? _increase : null,
-              ),
-            ],
+        /// العداد
+        Expanded(
+          child: Container(
+            height: 54,
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.chipBorder),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                IconButton(
+                  iconSize: 28,
+                  icon: const Icon(Icons.remove),
+                  onPressed: _quantity > 1 ? _decrease : null,
+                ),
+                Text(
+                  '$_quantity',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  iconSize: 28,
+                  icon: const Icon(Icons.add),
+                  onPressed: _quantity < widget.part.count ? _increase : null,
+                ),
+              ],
+            ),
           ),
         ),
+
         const SizedBox(width: 12),
+
+        /// زر إضافة للسلة
         Expanded(
           child: ElevatedButton.icon(
             onPressed: () async {
               final success = await context
                   .read<CartProvider>()
                   .addToCartToServer(widget.part, _quantity);
+
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(success
-                      ? "تمت إضافة $_quantity إلى السلة"
-                      : "فشلت الإضافة"),
+                  content: Text(
+                    success ? "تمت إضافة $_quantity إلى السلة" : "فشلت الإضافة",
+                  ),
                   backgroundColor:
                       success ? AppColors.success : AppColors.error,
                 ),
