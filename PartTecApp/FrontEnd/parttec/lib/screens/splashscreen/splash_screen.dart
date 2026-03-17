@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:parttec/screens/auth/auth_page.dart';
 import 'package:parttec/screens/employee/DeliveryDashboard.dart';
-import 'package:parttec/screens/employee/mechanic_dashboard.dart';
-import 'package:parttec/screens/supplier/seller_orders_screen.dart';
 import 'package:parttec/screens/home/home_page.dart';
+import 'package:parttec/screens/supplier/seller_orders_screen.dart';
 import 'package:parttec/screens/supplier/supplier_dashboard.dart';
 import 'package:parttec/utils/session_store.dart';
 import '../../theme/app_theme.dart';
@@ -15,48 +14,81 @@ class SplashPage extends StatefulWidget {
   State<SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage> {
+class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
+  late AnimationController _logoController;
+  late AnimationController _textController;
+
+  late Animation<double> _logoScale;
+  late Animation<double> _textOpacity;
+
   @override
   void initState() {
     super.initState();
-    _navigateNext();
+
+    _logoController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+
+    _textController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _logoScale = Tween<double>(begin: 0.5, end: 1).animate(
+      CurvedAnimation(parent: _logoController, curve: Curves.easeOutBack),
+    );
+
+    _textOpacity = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _textController, curve: Curves.easeIn),
+    );
+
+    startAnimation();
   }
 
-  Future<void> _navigateNext() async {
+  Future<void> startAnimation() async {
+    await _logoController.forward();
+
+    await _textController.forward();
+
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    navigateNext();
+  }
+
+  Future<void> navigateNext() async {
     final userId = await SessionStore.userId();
     final role = await SessionStore.role();
 
-    // مؤقت 3 ثواني
-    await Future.delayed(const Duration(seconds: 3));
-
     if (!mounted) return;
 
+    Widget next;
+
     if (userId == null || role == null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AuthPage()),
-      );
+      next = const AuthPage();
     } else {
-      Widget next;
       switch (role) {
         case 'seller':
           next = const SupplierDashboard();
           break;
-        case 'delivery': // ✅ التصحيح
+
+        case 'delivery':
           next = const DeliveryDashboard();
           break;
-        case 'admin': // ✅ التصحيح
-          next =  SellerOrdersScreen();
+
+        case 'admin':
+          next = SellerOrdersScreen();
           break;
+
         default:
           next = const HomePage();
       }
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => next),
-      );
     }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => next),
+    );
   }
 
   @override
@@ -74,46 +106,30 @@ class _SplashPageState extends State<SplashPage> {
             end: Alignment.bottomRight,
           ),
         ),
-        child: SafeArea(
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Expanded(
-                child: Center(
-                  child: Image.asset(
-                    'assets/images/logo.png',
-                    width: 160,
-                    height: 160,
+              ScaleTransition(
+                scale: _logoScale,
+                child: Image.asset(
+                  "assets/images/logo.png",
+                  width: 160,
+                ),
+              ),
+              const SizedBox(height: 20),
+              FadeTransition(
+                opacity: _textOpacity,
+                child: const Text(
+                  "PartTec",
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    fontFamily: "Tajawal",
                   ),
                 ),
               ),
-              const Text(
-                "أول تطبيق في سوريا لبيع قطع السيارات",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: "Tajawal",
-                  color: Colors.white,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                "أطلب ما تشاء من قطع التبديل مع Part Tec",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: "Tajawal",
-                  color: Colors.white70,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                strokeWidth: 3,
-              ),
-              const SizedBox(height: 40),
             ],
           ),
         ),
