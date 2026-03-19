@@ -15,12 +15,33 @@ import '../cart/cart_page.dart';
 import '../favorites/favorite_parts_page.dart';
 import '../order/user_delivered_orders_page.dart';
 import '../auth/auth_page.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 import '../../utils/session_store.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/user_provider.dart';
 import '../../screens/profile/profile_page.dart';
+//
+import '../../widgets/gradient_background.dart';
+import '../../widgets/header_glow.dart';
+import '../../widgets/floating_search_bar.dart';
+import '../../widgets/category_chips_bar.dart';
+import '../../widgets/my_cars_section.dart';
+import '../location/location_picker_sheet.dart';
+import '../../drawer/drawer_item.dart';
+
+/*import 'widgets/header_glow.dart';
+import 'widgets/floating_search_bar.dart';
+import 'widgets/category_chips_bar.dart';
+import 'widgets/visibility_toggle.dart';
+import 'widgets/section_title.dart';
+
+import 'cars/my_cars_section.dart';
+
+import 'location/location_picker_sheet.dart';
+
+import 'drawer/drawer_item.dart';*/
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -36,6 +57,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   late Animation<double> _fabAnimation;
   // نستخدم نفس الكنترولر
   late final TextEditingController _serialController;
+  int _currentPart = 0;
 
   // حقول البحث الجديدة
   String _searchQuery = '';
@@ -210,7 +232,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: Material(
             color: Colors.white,
-            child: _LocationPickerSheet(
+            child: LocationPickerSheet(
               initialLocation: initial,
             ),
           ),
@@ -391,7 +413,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         textDirection: TextDirection.rtl,
         child: Stack(
           children: [
-            const _GradientBackground(),
+            const GradientBackground(),
             (provider.isLoadingAvailable && provider.availableParts.isEmpty)
                 ? const Center(child: CircularProgressIndicator())
                 : RefreshIndicator(
@@ -450,7 +472,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                   ],
                                 ),
                               ),
-                              child: const _HeaderGlow(),
+                              child: const HeaderGlow(),
                             ),
                           ),
                         ),
@@ -465,12 +487,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 16),
-                                  child: _FloatingSearchBar(
+                                  child: FloatingSearchBar(
                                     controller: _serialController,
                                     onSearch: _performSearch,
                                     onClear: _clearSearch,
-                                    onChanged: (_) =>
-                                        setState(() {}), // لتحديث زر المسح
+                                    onChanged: (_) => _performSearch(),
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -494,7 +515,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           ),
                         ),
                         SliverToBoxAdapter(
-                          child: _CategoryChipsBar(
+                          child: CategoryChipsBar(
                             categories: _categories,
                             selectedIndex: _selectedCategoryIndex,
                             onChanged: (i) =>
@@ -522,7 +543,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               height: 260,
                               child: ListView.builder(
                                 scrollDirection: Axis.horizontal,
-                                reverse: true,
+                                reverse: false,
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 16),
                                 itemCount: _searchResults.length,
@@ -555,23 +576,29 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                     ),
                                   );
                                 }
-
                                 return SizedBox(
-                                  height: 260,
-                                  child: ListView.builder(
-                                    scrollDirection: Axis.horizontal,
-                                    reverse: true,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16),
-                                    itemCount: parts.length,
-                                    itemBuilder: (_, i) {
-                                      return SizedBox(
-                                        width: 180,
-                                        child: PartCard(part: parts[i]),
-                                      );
-                                    },
-                                  ),
-                                );
+                                    height: 260,
+                                    child: CarouselSlider.builder(
+                                        itemCount: parts.length,
+                                        itemBuilder: (context, i, realIndex) {
+                                          return Center(
+                                            child: SizedBox(
+                                              width: 180,
+                                              child: PartCard(part: parts[i]),
+                                            ),
+                                          );
+                                        },
+                                        options: CarouselOptions(
+                                          height: 260,
+                                          autoPlay: true,
+                                          autoPlayInterval:
+                                              const Duration(seconds: 3),
+                                          autoPlayAnimationDuration:
+                                              const Duration(milliseconds: 800),
+                                          autoPlayCurve: Curves.easeInOut,
+                                          enlargeCenterPage: true,
+                                          viewportFraction: 0.5,
+                                        )));
                               },
                             ),
                           ),
@@ -579,7 +606,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         SliverToBoxAdapter(
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
-                            child: _MyCarsSection(),
+                            child: MyCarsSection(),
                           ),
                         ),
                       ],
@@ -668,9 +695,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 const SizedBox(height: 20),
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
                     children: [
-                      _drawerItem(
+                      drawerItem(
                         icon: Icons.person,
                         title: 'البروفايل',
                         color: Colors.orange,
@@ -685,7 +712,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           );
                         },
                       ),
-                      _drawerItem(
+                      drawerItem(
                         icon: Icons.support_agent,
                         title: 'الاتصال بالدعم',
                         subtitle: 'تواصل معنا عبر واتساب',
@@ -738,7 +765,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           ),
                         ),
                       ),
-                      _drawerItem(
+                      drawerItem(
                         icon: Icons.logout,
                         title: 'تسجيل الخروج',
                         color: Colors.redAccent,
@@ -750,7 +777,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           }
                         },
                       ),
-                      _drawerItem(
+                      drawerItem(
                         icon: Icons.location_on,
                         title: 'تثبيت موقعي في الحساب',
                         subtitle: _pinnedLocation == null
@@ -764,7 +791,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           await _pinUserLocationToProfile();
                         },
                       ),
-                      _drawerItem(
+                      drawerItem(
                         icon: Icons.delete_forever,
                         title: 'حذف الحساب',
                         color: Colors.red,
@@ -952,81 +979,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 }
 
-Widget _drawerItem({
-  required IconData icon,
-  required String title,
-  String? subtitle,
-  required Color color,
-  required VoidCallback onTap,
-}) {
-  return Card(
-    elevation: 3,
-    margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-    child: ListTile(
-      leading: CircleAvatar(
-        backgroundColor: color.withOpacity(0.2),
-        child: Icon(icon, color: color),
-      ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: subtitle != null ? Text(subtitle) : null,
-      onTap: onTap,
-    ),
-  );
-}
 
-class _GradientBackground extends StatelessWidget {
-  const _GradientBackground();
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.bgGradientA,
-            AppColors.bgGradientB,
-            AppColors.bgGradientC,
-          ],
-          stops: const [0.0, 0.45, 1.0],
-        ),
-      ),
-    );
-  }
-}
 
-class _HeaderGlow extends StatelessWidget {
-  const _HeaderGlow();
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        const Positioned.fill(child: Opacity(opacity: 0.15)),
-        Positioned(
-          right: -40,
-          bottom: -20,
-          child: Container(
-            width: 180,
-            height: 180,
-            decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08), shape: BoxShape.circle),
-          ),
-        ),
-        Positioned(
-          left: -20,
-          top: 10,
-          child: Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.06), shape: BoxShape.circle),
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 class _SearchBarHeader extends SliverPersistentHeaderDelegate {
   final double _minExtent;
@@ -1059,57 +1013,6 @@ class _SearchBarHeader extends SliverPersistentHeaderDelegate {
     return oldDelegate._minExtent != _minExtent ||
         oldDelegate._maxExtent != _maxExtent ||
         oldDelegate.child != child;
-  }
-}
-
-class _FloatingSearchBar extends StatelessWidget {
-  final TextEditingController controller;
-  final VoidCallback onSearch;
-  final VoidCallback? onClear;
-  final ValueChanged<String>? onChanged; // جديد
-
-  const _FloatingSearchBar({
-    required this.controller,
-    required this.onSearch,
-    this.onClear,
-    this.onChanged, // جديد
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      elevation: 10,
-      borderRadius: BorderRadius.circular(16),
-      color: Colors.white.withOpacity(0.9),
-      child: TextField(
-        controller: controller,
-        textInputAction: TextInputAction.search,
-        onSubmitted: (_) => onSearch(),
-        onChanged: onChanged, // لتحديث أيقونات الحقل لحظيًا
-        decoration: InputDecoration(
-          hintText: 'ابحث بالاسم أو الرقم التسلسلي...',
-          border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          prefixIcon: const Icon(Icons.qr_code_scanner_rounded),
-          suffixIcon: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if ((controller.text).isNotEmpty)
-                IconButton(
-                  tooltip: 'مسح',
-                  icon: const Icon(Icons.clear),
-                  onPressed: onClear,
-                ),
-              IconButton(
-                tooltip: 'بحث',
-                onPressed: onSearch,
-                icon: const Icon(Icons.search),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 
@@ -1197,644 +1100,6 @@ class _VisibilityToggle extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _CategoryChipsBar extends StatelessWidget {
-  final List<Map<String, dynamic>> categories;
-  final int selectedIndex;
-  final ValueChanged<int> onChanged;
-  const _CategoryChipsBar({
-    required this.categories,
-    required this.selectedIndex,
-    required this.onChanged,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 46,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemBuilder: (_, i) {
-          final label = categories[i]['label'] as String;
-          final isSel = selectedIndex == i;
-          return GestureDetector(
-            onTap: () => onChanged(i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSel ? Colors.blue : Colors.white,
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  if (isSel)
-                    BoxShadow(
-                        color: Colors.blue.withOpacity(0.25),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6))
-                ],
-                border: Border.all(
-                    color: isSel ? Colors.blue : Colors.grey.shade300),
-              ),
-              child: Center(
-                child: Row(
-                  children: [
-                    Icon(categories[i]['icon'] as IconData,
-                        size: 18, color: isSel ? Colors.white : Colors.black87),
-                    const SizedBox(width: 6),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: isSel ? Colors.white : Colors.black87,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemCount: categories.length,
-      ),
-    );
-  }
-}
-
-class _MyCarsSection extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<HomeProvider>(context);
-    final cars = provider.userCars;
-    return Card(
-      elevation: 8,
-      shadowColor: Colors.black12,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: DefaultTabController(
-          length: 2,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const _CardHeader(title: 'سياراتي'),
-              const SizedBox(height: 5),
-              SizedBox(
-                height: 60,
-                child: Container(
-                  decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12)),
-                  child: const TabBar(
-                    labelColor: Colors.blue,
-                    unselectedLabelColor: Colors.black54,
-                    indicator: BoxDecoration(
-                        color: Color(0x1A2196F3),
-                        borderRadius: BorderRadius.all(Radius.circular(10))),
-                    tabs: [
-                      Tab(icon: Icon(Icons.directions_car)),
-                      Tab(
-                        icon: Icon(Icons.add_circle_outline),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 150,
-                child: TabBarView(
-                  physics: const BouncingScrollPhysics(),
-                  children: [
-                    cars.isEmpty
-                        ? Center(
-                            child: Text(
-                                'لا توجد سيارات بعد — أضِف سيارتك من التبويب التالي.',
-                                style: TextStyle(color: Colors.grey[700])))
-                        : _CarsSlider(cars: cars),
-                    const SingleChildScrollView(child: _CarFormCard()),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CarsSlider extends StatefulWidget {
-  final List<dynamic> cars;
-  const _CarsSlider({required this.cars});
-  @override
-  State<_CarsSlider> createState() => _CarsSliderState();
-}
-
-class _CarsSliderState extends State<_CarsSlider> {
-  final PageController _page = PageController(viewportFraction: 0.86);
-  int _index = 0;
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: PageView.builder(
-            controller: _page,
-            itemCount: widget.cars.length,
-            onPageChanged: (i) => setState(() => _index = i),
-            physics: const BouncingScrollPhysics(),
-            itemBuilder: (_, i) {
-              final c = widget.cars[i];
-              final title = '${c['manufacturer']} ${c['model']}';
-              final sub = ' ${c['year']} ';
-
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                margin: EdgeInsets.only(
-                  right: 10,
-                  left: i == 0 ? 2 : 0,
-                  bottom: _index == i ? 0 : 10,
-                  top: _index == i ? 0 : 10,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF2196F3), Color(0xFF3949AB)],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
-                      blurRadius: 18,
-                      offset: const Offset(0, 10),
-                    )
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: const BoxDecoration(
-                          color: Colors.white24,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.directions_car,
-                          color: Colors.white,
-                          size: 30,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  title,
-                                  maxLines: 2,
-                                  softWrap: true,
-                                  overflow: TextOverflow.visible,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 16,
-                                    height: 1.3,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  sub,
-                                  maxLines: 2,
-                                  softWrap: true,
-                                  overflow: TextOverflow.visible,
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.3,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 6,
-                                  children: [
-                                    if (c['vin'] != null &&
-                                        (c['vin'] as String).isNotEmpty)
-                                      _pill('VIN: ${c['vin']}'),
-                                    if (c['engine'] != null &&
-                                        c['engine']
-                                            .toString()
-                                            .trim()
-                                            .isNotEmpty)
-                                      _pill('محرك: ${c['engine']}'),
-                                  ],
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _miniBtn(icon: Icons.edit, tooltip: 'تعديل'),
-                          const SizedBox(height: 8),
-                          _miniBtn(icon: Icons.delete, tooltip: 'حذف'),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(widget.cars.length, (i) {
-            final active = i == _index;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: active ? 18 : 8,
-              height: 8,
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              decoration: BoxDecoration(
-                color: active ? const Color(0xFF2196F3) : Colors.grey.shade400,
-                borderRadius: BorderRadius.circular(10),
-              ),
-            );
-          }),
-        ),
-      ],
-    );
-  }
-
-  Widget _pill(String t) => Chip(
-        label: Text(t,
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.w700)),
-        backgroundColor: Colors.white24,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-      );
-  Widget _miniBtn({required IconData icon, String? tooltip}) => Tooltip(
-        message: tooltip ?? '',
-        child: InkWell(
-          onTap: () {},
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-                color: Colors.white24, borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, size: 20, color: Colors.white),
-          ),
-        ),
-      );
-}
-
-class _CarFormCard extends StatelessWidget {
-  const _CarFormCard();
-  @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<HomeProvider>(context);
-    return Card(
-      elevation: 6,
-      shadowColor: Colors.black12,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _CardHeader(title: 'إضافة/تحديث سيارة'),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
-                  labelText: 'ماركة السيارة', border: OutlineInputBorder()),
-              value: provider.selectedMake,
-              items: provider.makes
-                  .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                  .toList(),
-              onChanged: provider.setSelectedMake,
-            ),
-            if (provider.selectedMake != null) ...[
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                    labelText: 'الموديل', border: OutlineInputBorder()),
-                value: provider.selectedModel,
-                items: (provider.modelsByMake[provider.selectedMake] ?? [])
-                    .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                    .toList(),
-                onChanged: provider.setSelectedModel,
-              ),
-            ],
-            if (provider.selectedModel != null) ...[
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                    labelText: 'سنة الصنع', border: OutlineInputBorder()),
-                value: provider.selectedYear,
-                items: provider.years
-                    .map((y) => DropdownMenuItem(value: y, child: Text(y)))
-                    .toList(),
-                onChanged: provider.setSelectedYear,
-              ),
-            ],
-            if (provider.selectedYear != null) ...[
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                    labelText: 'نوع الوقود', border: OutlineInputBorder()),
-                value: provider.selectedFuel,
-                items: provider.fuelTypes
-                    .map((f) => DropdownMenuItem(value: f, child: Text(f)))
-                    .toList(),
-                onChanged: provider.setSelectedFuel,
-              ),
-            ],
-            const SizedBox(height: 14),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.save),
-                label: const Text('حفظ السيارة'),
-                onPressed: () async {
-                  final provider = context.read<HomeProvider>();
-                  final result = await provider.submitCar();
-
-                  if (!context.mounted) return;
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(result ?? '✅ تم حفظ السيارة بنجاح'),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CardHeader extends StatelessWidget {
-  final String title;
-  const _CardHeader({required this.title});
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-            width: 8,
-            height: 22,
-            decoration: BoxDecoration(
-                color: Colors.blue, borderRadius: BorderRadius.circular(8))),
-        const SizedBox(width: 8),
-        Text(title,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
-      ],
-    );
-  }
-}
-
-class _LocationPickerSheet extends StatefulWidget {
-  final LatLng initialLocation;
-
-  const _LocationPickerSheet({
-    required this.initialLocation,
-  });
-  @override
-  State<_LocationPickerSheet> createState() => _LocationPickerSheetState();
-}
-
-class _LocationPickerSheetState extends State<_LocationPickerSheet> {
-  final MapController _map = MapController();
-  late LatLng _center;
-  LatLng? _picked;
-  bool _locating = false; // حالة لجعل الواجهة تظهر أننا نحاول الحصول على الموقع
-
-  @override
-  void initState() {
-    super.initState();
-    _center = widget.initialLocation;
-    _picked = widget.initialLocation;
-    // حاول الحصول على موقع الجهاز تلقائياً عند الفتح
-    _determinePositionAndMove();
-  }
-
-  Future<void> _determinePositionAndMove() async {
-    setState(() => _locating = true);
-
-    try {
-      // هل خدمة الموقع مفعّلة؟
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        // إبلاغ المستخدم أو الاستمرار بالموقع الافتراضي
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('خدمة الموقع متوقفة، الرجاء تفعيلها')),
-          );
-        }
-        setState(() => _locating = false);
-        return;
-      }
-
-      // تحقق من الأذونات
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('تم رفض إذن الموقع')),
-            );
-          }
-          setState(() => _locating = false);
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text(
-                    'تم رفض إذن الموقع نهائياً. من فضلك فعّل الإذن من إعدادات التطبيق')),
-          );
-        }
-        setState(() => _locating = false);
-        return;
-      }
-
-      // الآن نأخذ الموقع الحالي
-      final Position pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.best);
-
-      final LatLng deviceLatLng = LatLng(pos.latitude, pos.longitude);
-
-      // حدّث المركز والمؤشر
-      if (mounted) {
-        setState(() {
-          _center = deviceLatLng;
-          _picked = deviceLatLng;
-        });
-
-        // حرّك الخريطة إلى الموضع الجديد بعد قليل للتأكد أن MapController جاهز
-        Future.delayed(const Duration(milliseconds: 100), () {
-          try {
-            _map.move(_center, 14); // ضبط مستوى التكبير كما تريد
-          } catch (_) {}
-        });
-      }
-    } catch (e) {
-      // خطأ عام — يمكن إظهار رسالة للمستخدم
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تعذّر الحصول على موقعك: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _locating = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // استبدل الشريط العلوي الحالي بعنصر يعرض حالة تحديد الموقع ويحتوي زر لإعادة المحاولة
-        Container(
-          height: 52,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          alignment: Alignment.centerLeft,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'اضغط على الخريطة لتثبيت الدبوس، ثم اضغط حفظ',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-              if (_locating)
-                Row(
-                  children: const [
-                    SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    SizedBox(width: 8),
-                    Text('جاري تحديد الموقع'),
-                  ],
-                )
-              else
-                IconButton(
-                  tooltip: 'تحديد موقعي الآن',
-                  icon: const Icon(Icons.my_location),
-                  onPressed: _determinePositionAndMove,
-                ),
-            ],
-          ),
-        ),
-
-        // بقية واجهة الخريطة كما كانت - مع استخدام _center و _picked
-        Expanded(
-          child: FlutterMap(
-            mapController: _map,
-            options: MapOptions(
-              center: _center,
-              zoom: 14,
-              onTap: (tapPos, latlng) => setState(() => _picked = latlng),
-            ),
-            children: [
-              TileLayer(
-                urlTemplate:
-                    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                subdomains: const ['a', 'b', 'c'],
-                userAgentPackageName: 'com.example.parttec',
-              ),
-              if (_picked != null)
-                MarkerLayer(markers: [
-                  Marker(
-                    point: _picked!,
-                    width: 42,
-                    height: 42,
-                    child: const Icon(Icons.location_pin,
-                        size: 42, color: Colors.red),
-                  ),
-                ]),
-            ],
-          ),
-        ),
-
-        // أسفل الخريطة زر الحفظ/إلغاء كما لديك
-        Container(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _picked == null
-                      ? 'لم يتم اختيار موقع'
-                      : 'Lat: ${_picked!.latitude.toStringAsFixed(6)} • Lng: ${_picked!.longitude.toStringAsFixed(6)}',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop<LatLng>(null),
-                child: const Text('إلغاء'),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton.icon(
-                onPressed: _picked == null
-                    ? null
-                    : () => Navigator.of(context).pop<LatLng>(_picked),
-                icon: const Icon(Icons.save),
-                label: const Text('حفظ'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

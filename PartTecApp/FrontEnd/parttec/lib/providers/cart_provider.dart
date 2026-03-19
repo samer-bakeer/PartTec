@@ -63,6 +63,56 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> deleteCartItem(String cartItemId) async {
+    try {
+      final url = Uri.parse(
+        '${AppSettings.serverurl}/cart/deleteCartItem/$cartItemId',
+      );
+
+      final response = await http.delete(url);
+
+      if (response.statusCode == 200) {
+        _cartItems.removeWhere((item) => item.id == cartItemId);
+
+        notifyListeners();
+      }
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  Future<void> updateQuantity(String cartItemId, int newQuantity) async {
+    final uri = Uri.parse(
+      '${AppSettings.serverurl}/cart/updateCartItem/$cartItemId',
+    );
+
+    try {
+      final response = await http.put(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({"quantity": newQuantity}),
+      );
+
+      if (response.statusCode == 200) {
+        final index = _cartItems.indexWhere((e) => e.id == cartItemId);
+
+        if (index != -1) {
+          _cartItems[index] = CartItem(
+            id: _cartItems[index].id,
+            part: _cartItems[index].part,
+            quantity: newQuantity,
+          );
+        }
+
+        notifyListeners();
+      } else {
+        print("❌ update failed: ${response.body}");
+      }
+    } catch (e) {
+      print("❌ update error: $e");
+    }
+  }
+
   Future<bool> addToCartToServer(Part part, int quantity) async {
     final uid = await SessionStore.userId();
     if (uid == null || uid.isEmpty) {

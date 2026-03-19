@@ -37,6 +37,7 @@ dependencies:
   url_launcher: ^6.2.5
   geocoding: ^3.0.0
   geolocator: ^9.0.2
+  carousel_slider: ^5.0.0
 
 dev_dependencies:
   flutter_test:
