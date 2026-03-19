@@ -1,11 +1,11 @@
 name: parttec
-description: "A new Flutter project."
-publish_to: "none"
+description: 'A new Flutter project.'
+publish_to: 'none'
 
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.3.0 <4.0.0"
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -25,7 +25,9 @@ dependencies:
   # file_picker: ^6.1.1
   firebase_core: ^2.32.0
   firebase_messaging: ^14.7.10
-  flutter_local_notifications: 18.0.1
+  # flutter_local_notifications: 18.0.1
+  # flutter_local_notifications: ^16.3.0
+  flutter_local_notifications: ^17.1.2
   webview_flutter: ^4.4.2
   webview_flutter_android: ^3.15.0
   webview_flutter_wkwebview: ^3.13.0
@@ -52,4 +54,4 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icon/app_icon.png"
+  image_path: 'assets/icon/app_icon.png'
