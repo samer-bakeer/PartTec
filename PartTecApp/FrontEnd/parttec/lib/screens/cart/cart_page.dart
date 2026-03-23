@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../utils/app_settings.dart';
+
 import '../../providers/currency_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ui_kit.dart';
@@ -22,6 +22,7 @@ class CartPage extends StatefulWidget {
 
 class _CartPageState extends State<CartPage> {
   bool _fetchedOnce = false;
+  final Set<String> _updatingItemIds = {};
 
   @override
   void initState() {
@@ -29,11 +30,21 @@ class _CartPageState extends State<CartPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final cart = context.read<CartProvider>();
-      if (!_fetchedOnce && cart.cartItems.isEmpty) {
+
+      // عند كل دخول للصفحة اجلب السلة من السيرفر
+      // وداخل fetchCartFromServer يتم جلب stock الحقيقي لكل عنصر
+      if (!_fetchedOnce) {
         _fetchedOnce = true;
         await cart.fetchCartFromServer();
       }
     });
+  }
+
+  int _stockForItem(CartProvider cartProvider, CartItem item) {
+    return cartProvider.stockForCartItem(
+      item.id,
+      fallback: item.part.count,
+    );
   }
 
   Future<Map<String, dynamic>?> _getSavedPinnedLocationData() async {
@@ -45,17 +56,18 @@ class _CartPageState extends State<CartPage> {
     if (lat != null && lng != null) {
       return {
         'location': LatLng(lat, lng),
-        'name':
-            (name != null && name.trim().isNotEmpty) ? name : 'الموقع المثبت',
+        'name': (name != null && name.trim().isNotEmpty)
+            ? name
+            : 'الموقع المثبت',
       };
     }
     return null;
   }
 
   Future<LatLng?> _showLocationChoiceDialog(
-    LatLng savedLocation,
-    String savedLocationName,
-  ) async {
+      LatLng savedLocation,
+      String savedLocationName,
+      ) async {
     return await showModalBottomSheet<LatLng>(
       context: context,
       isScrollControlled: true,
@@ -90,13 +102,15 @@ class _CartPageState extends State<CartPage> {
                 ),
                 Card(
                   child: ListTile(
-                    leading: const Icon(Icons.edit_location_alt,
-                        color: Colors.green),
+                    leading: const Icon(
+                      Icons.edit_location_alt,
+                      color: Colors.green,
+                    ),
                     title: const Text('اختيار موقع جديد'),
                     subtitle: const Text('تحديد موقع جديد عبر GPS'),
                     onTap: () async {
-                      final result = await Navigator.of(context)
-                          .push<SimpleLocationResult>(
+                      final result =
+                      await Navigator.of(context).push<SimpleLocationResult>(
                         MaterialPageRoute(
                           builder: (_) => const SimpleLocationPickerPage(),
                         ),
@@ -105,11 +119,17 @@ class _CartPageState extends State<CartPage> {
                       if (result != null) {
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.setDouble(
-                            'user_lat', result.location.latitude);
+                          'user_lat',
+                          result.location.latitude,
+                        );
                         await prefs.setDouble(
-                            'user_lng', result.location.longitude);
+                          'user_lng',
+                          result.location.longitude,
+                        );
                         await prefs.setString(
-                            'user_location_name', result.locationName);
+                          'user_location_name',
+                          result.locationName,
+                        );
 
                         if (!mounted) return;
                         Navigator.of(sheetContext).pop(result.location);
@@ -132,7 +152,7 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Future<void> _proceedToOrder(String method) async {
+  Future<void> _proceedToOrder(String method, double finalTotal) async {
     final uid = await SessionStore.userId();
     if (uid == null || uid.isEmpty) {
       if (!mounted) return;
@@ -173,20 +193,449 @@ class _CartPageState extends State<CartPage> {
     if (location == null) return;
 
     if (!mounted) return;
-    _confirmOrderWithLocation(context, location, method);
+    _confirmOrderWithLocation(context, location, method, finalTotal);
+  }
+
+  Future<void> _changeQuantity({
+    required CartItem item,
+    required bool increase,
+  }) async {
+    final itemId = item.id;
+    if (itemId == null) return;
+    if (_updatingItemIds.contains(itemId)) return;
+
+    setState(() {
+      _updatingItemIds.add(itemId);
+    });
+
+    try {
+      final cartProvider = context.read<CartProvider>();
+
+      // جلب أحدث بيانات من السيرفر قبل القرار
+      await cartProvider.fetchCartFromServer();
+      if (!mounted) return;
+
+      CartItem? freshItem;
+      try {
+        freshItem = cartProvider.cartItems.firstWhere((e) => e.id == itemId);
+      } catch (_) {
+        freshItem = null;
+      }
+
+      if (freshItem == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر العثور على العنصر')),
+        );
+        return;
+      }
+
+      final totalStock = cartProvider.stockForCartItem(
+        freshItem.id,
+        fallback: freshItem.part.count,
+      );
+
+      final cartQty = freshItem.quantity;
+      final remainingToAdd = (totalStock - cartQty).clamp(0, 999999);
+
+      if (!increase) {
+        if (cartQty <= 1) return;
+
+        final message = await cartProvider.updateQuantity(
+          itemId,
+          cartQty - 1,
+        );
+
+        if (!mounted) return;
+        if (message != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+        }
+        return;
+      }
+
+      if (totalStock <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('هذه القطعة غير متوفرة حالياً')),
+        );
+        return;
+      }
+
+      if (remainingToAdd <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('وصلت للحد الأقصى المتاح لهذه القطعة')),
+        );
+        return;
+      }
+
+      final message = await cartProvider.updateQuantity(
+        itemId,
+        cartQty + 1,
+      );
+
+      if (!mounted) return;
+      if (message != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _updatingItemIds.remove(itemId);
+        });
+      }
+    }
+  }
+
+  Widget _buildModernQtyButton({
+    required IconData icon,
+    required bool enabled,
+    required VoidCallback? onTap,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: enabled ? Colors.white : Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: enabled ? Colors.grey.shade300 : Colors.grey.shade200,
+        ),
+        boxShadow: enabled
+            ? const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 3,
+            offset: Offset(0, 1),
+          ),
+        ]
+            : [],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Icon(
+            icon,
+            size: 18,
+            color: enabled ? Colors.black87 : Colors.grey,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuantityControl(
+      CartItem item,
+      CartProvider cartProvider,
+      ) {
+    final itemId = item.id;
+    final bool isUpdating =
+        itemId != null && _updatingItemIds.contains(itemId);
+
+    final totalStock = _stockForItem(cartProvider, item);
+    final cartQty = item.quantity;
+    final remainingToAdd = (totalStock - cartQty).clamp(0, 999999);
+
+    final bool canDecrease = cartQty > 1 && !isUpdating;
+    final bool canIncrease = remainingToAdd > 0 && !isUpdating;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildModernQtyButton(
+            icon: Icons.remove,
+            enabled: canDecrease,
+            onTap: canDecrease
+                ? () => _changeQuantity(item: item, increase: false)
+                : null,
+          ),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: isUpdating
+                ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+                : Text(
+              '$cartQty',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          _buildModernQtyButton(
+            icon: Icons.add,
+            enabled: canIncrease,
+            onTap: canIncrease
+                ? () => _changeQuantity(item: item, increase: true)
+                : () {
+              String msg;
+              if (totalStock <= 0) {
+                msg = 'هذه القطعة غير متوفرة حالياً';
+              } else {
+                msg = 'وصلت للحد الأقصى المتاح لهذه القطعة';
+              }
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(msg)),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuantitySection(
+      CartItem item,
+      CartProvider cartProvider,
+      ) {
+    final totalStock = _stockForItem(cartProvider, item);
+    final cartQty = item.quantity;
+    final remainingToAdd = (totalStock - cartQty).clamp(0, 999999);
+
+    String stockText;
+    Color stockColor;
+
+    if (totalStock <= 0) {
+      stockText = 'غير متوفر حالياً';
+      stockColor = Colors.red;
+    } else if (remainingToAdd <= 0) {
+      stockText = 'وصلت للحد الأقصى المتاح';
+      stockColor = Colors.orange;
+    } else {
+      stockText = 'المخزون: $totalStock | يمكن إضافة: $remainingToAdd';
+      stockColor = Colors.grey.shade700;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildQuantityControl(item, cartProvider),
+        const SizedBox(height: 6),
+        Text(
+          stockText,
+          style: TextStyle(
+            fontSize: 12,
+            color: stockColor,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCartItemCard({
+    required BuildContext context,
+    required CartItem item,
+    required CartProvider cartProvider,
+    required CurrencyProvider currency,
+    required int index,
+  }) {
+    final part = item.part;
+    final itemTotal = part.price * item.quantity;
+    final imageUrl = part.imageUrl;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 6,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 28,
+            child: IconButton(
+              tooltip: 'حذف',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () => _confirmDelete(context, cartProvider, index),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  part.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15.5,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  currency.formatPrice(part.price),
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: AppColors.success,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _buildQuantitySection(item, cartProvider),
+                ),
+                if (item.quantity > 1) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    'إجمالي الصنف: ${currency.formatPrice(itemTotal)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              imageUrl,
+              width: 78,
+              height: 78,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 78,
+                height: 78,
+                color: Colors.grey.shade200,
+                child: const Icon(Icons.broken_image),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCheckoutButtons(double finalTotal) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 360;
+
+        if (isNarrow) {
+          return Column(
+            children: [
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () =>
+                      _proceedToOrder('الدفع عند الاستلام', finalTotal),
+                  icon: const Icon(Icons.delivery_dining),
+                  label: const Text('الدفع عند الاستلام'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () =>
+                      _proceedToOrder('الدفع بالبطاقة', finalTotal),
+                  icon: const Icon(Icons.credit_card),
+                  label: const Text('الدفع بالبطاقة'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () =>
+                    _proceedToOrder('الدفع عند الاستلام', finalTotal),
+                icon: const Icon(Icons.delivery_dining),
+                label: const Text('الدفع عند الاستلام'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpaces.md),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () =>
+                    _proceedToOrder('الدفع بالبطاقة', finalTotal),
+                icon: const Icon(Icons.credit_card),
+                label: const Text('الدفع بالبطاقة'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
     final auth = context.watch<AuthProvider>();
+    final currency = context.watch<CurrencyProvider>();
+
     final String role = auth.role ?? '';
     final double discountRate = role == 'mechanic' ? 0.15 : 0.0;
 
     final double total = cart.cartItems.fold<double>(
       0.0,
-      (sum, CartItem item) => sum + (item.part.price * item.quantity),
+          (sum, CartItem item) => sum + (item.part.price * item.quantity),
     );
+
     final double discountAmount = total * discountRate;
     final double finalTotal = total - discountAmount;
 
@@ -230,134 +679,33 @@ class _CartPageState extends State<CartPage> {
                     child: Center(child: Text('السلة فارغة 🛒')),
                   )
                 else ...[
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final item = cart.cartItems[index];
-                          final part = item.part;
-                          final cartProvider = context.read<CartProvider>();
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                            final item = cart.cartItems[index];
+                            final cartProvider = context.read<CartProvider>();
 
-                          return Container(
-                            margin: const EdgeInsets.symmetric(vertical: 8),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Colors.black12,
-                                  blurRadius: 6,
-                                  offset: Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: Image.network(
-                                    part.imageUrl,
-                                    width: 64,
-                                    height: 64,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      width: 64,
-                                      height: 64,
-                                      color: Colors.grey.shade200,
-                                      child: const Icon(Icons.broken_image),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        part.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 15.5,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Consumer<CurrencyProvider>(
-                                            builder: (context, currency, _) =>
-                                                Text(
-                                              currency.formatPrice(part.price),
-                                              style: TextStyle(
-                                                color: AppColors.success,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Row(
-                                            children: [
-                                              IconButton(
-                                                icon: const Icon(Icons.remove),
-                                                onPressed: () {
-                                                  if (item.quantity > 1) {
-                                                    cartProvider.updateQuantity(
-                                                      item.id!,
-                                                      item.quantity - 1,
-                                                    );
-                                                  }
-                                                },
-                                              ),
-                                              Text(
-                                                '${item.quantity}',
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              IconButton(
-                                                icon: const Icon(Icons.add),
-                                                onPressed: () {
-                                                  cartProvider.updateQuantity(
-                                                    item.id!,
-                                                    item.quantity + 1,
-                                                  );
-                                                },
-                                              ),
-                                            ],
-                                          )
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: 'حذف',
-                                  icon: const Icon(Icons.delete,
-                                      color: Colors.red),
-                                  onPressed: () =>
-                                      _confirmDelete(context, cart, index),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                        childCount: cart.cartItems.length,
+                            return _buildCartItemCard(
+                              context: context,
+                              item: item,
+                              cartProvider: cartProvider,
+                              currency: currency,
+                              index: index,
+                            );
+                          },
+                          childCount: cart.cartItems.length,
+                        ),
                       ),
                     ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                      child: Consumer<CurrencyProvider>(
-                        builder: (context, currency, _) => Container(
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        child: Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(18),
                             boxShadow: const [
                               BoxShadow(
                                 color: Colors.black12,
@@ -383,11 +731,15 @@ class _CartPageState extends State<CartPage> {
                                       ),
                                     ),
                                     const Spacer(),
-                                    Text(
-                                      currency.formatPrice(total),
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w900,
+                                    Flexible(
+                                      child: Text(
+                                        currency.formatPrice(total),
+                                        textAlign: TextAlign.end,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w900,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -404,12 +756,16 @@ class _CartPageState extends State<CartPage> {
                                         ),
                                       ),
                                       const Spacer(),
-                                      Text(
-                                        currency.formatPrice(discountAmount),
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.red,
+                                      Flexible(
+                                        child: Text(
+                                          currency.formatPrice(discountAmount),
+                                          textAlign: TextAlign.end,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.red,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -425,53 +781,30 @@ class _CartPageState extends State<CartPage> {
                                         ),
                                       ),
                                       const Spacer(),
-                                      Text(
-                                        currency.formatPrice(finalTotal),
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.green,
+                                      Flexible(
+                                        child: Text(
+                                          currency.formatPrice(finalTotal),
+                                          textAlign: TextAlign.end,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w800,
+                                            color: Colors.green,
+                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
                                 ],
                                 const SizedBox(height: AppSpaces.md),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: ElevatedButton.icon(
-                                        onPressed: () => _proceedToOrder(
-                                            'الدفع عند الاستلام'),
-                                        icon: const Icon(Icons.delivery_dining),
-                                        label: const Text('الدفع عند الاستلام'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.orange,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: AppSpaces.md),
-                                    Expanded(
-                                      child: ElevatedButton.icon(
-                                        onPressed: () =>
-                                            _proceedToOrder('الدفع بالبطاقة'),
-                                        icon: const Icon(Icons.credit_card),
-                                        label: const Text('الدفع بالبطاقة'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.green,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                _buildCheckoutButtons(finalTotal),
                               ],
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
               ],
             ),
           ),
@@ -508,28 +841,25 @@ class _CartPageState extends State<CartPage> {
               );
             },
             child: const Text('حذف'),
-          )
+          ),
         ],
       ),
     );
   }
 
   void _confirmOrderWithLocation(
-    BuildContext context,
-    LatLng location,
-    String method,
-  ) {
+      BuildContext context,
+      LatLng location,
+      String method,
+      double finalTotal,
+      ) {
     final cart = context.read<CartProvider>();
-    final total = cart.cartItems.fold<double>(
-      0.0,
-      (sum, CartItem item) => sum + (item.part.price * item.quantity),
-    );
 
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => OrderSummaryPage(
           items: cart.cartItems,
-          total: total,
+          total: finalTotal,
           location: location,
           paymentMethod: method,
         ),

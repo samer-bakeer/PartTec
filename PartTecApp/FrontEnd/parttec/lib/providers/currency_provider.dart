@@ -14,7 +14,6 @@ class CurrencyProvider with ChangeNotifier {
     _currency = saved ?? "USD";
 
     await fetchRate();
-
     notifyListeners();
   }
 
@@ -24,16 +23,15 @@ class CurrencyProvider with ChangeNotifier {
 
   Future<void> changeCurrency(String newCurrency) async {
     _currency = newCurrency;
-
     await SessionStore.setCurrency(newCurrency);
-
+    await fetchRate();
     notifyListeners();
   }
 
   String formatPrice(double price) {
     if (_currency == "SYP") {
       final syp = price * _rate;
-      return "${syp.toStringAsFixed(0)}ل.س    ";
+      return "${syp.toStringAsFixed(0)} ل.س";
     }
 
     return "\$${price.toStringAsFixed(2)}";
