@@ -1,17 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:dropdown_search/dropdown_search.dart';
+import 'package:flutter/services.dart';
+
+import '../constants/car_data.dart';
+import '../providers/car_provider.dart';
 import '../providers/home_provider.dart';
 
-class MyCarsSection extends StatelessWidget {
+class MyCarsSection extends StatefulWidget {
+  const MyCarsSection({super.key});
+
+  @override
+  State<MyCarsSection> createState() => _MyCarsSectionState();
+}
+
+class _MyCarsSectionState extends State<MyCarsSection> {
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final homeProvider = context.read<HomeProvider>();
+      if (homeProvider.userCars.isEmpty) {
+        await homeProvider.fetchUserCars();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<HomeProvider>(context);
+    final provider = context.watch<HomeProvider>();
     final cars = provider.userCars;
+
     return Card(
       elevation: 8,
       shadowColor: Colors.black12,
       color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: DefaultTabController(
@@ -20,41 +47,46 @@ class MyCarsSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const CardHeader(title: 'سياراتي'),
-              const SizedBox(height: 5),
+              const SizedBox(height: 8),
               SizedBox(
-                height: 60,
+                height: 56,
                 child: Container(
                   decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12)),
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: const TabBar(
                     labelColor: Colors.blue,
                     unselectedLabelColor: Colors.black54,
                     indicator: BoxDecoration(
-                        color: Color(0x1A2196F3),
-                        borderRadius: BorderRadius.all(Radius.circular(10))),
+                      color: Color(0x1A2196F3),
+                      borderRadius: BorderRadius.all(Radius.circular(10)),
+                    ),
                     tabs: [
                       Tab(icon: Icon(Icons.directions_car)),
-                      Tab(
-                        icon: Icon(Icons.add_circle_outline),
-                      ),
+                      Tab(icon: Icon(Icons.add_circle_outline)),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               SizedBox(
-                height: 150,
+                height: 380,
                 child: TabBarView(
                   physics: const BouncingScrollPhysics(),
                   children: [
                     cars.isEmpty
                         ? Center(
-                            child: Text(
-                                'لا توجد سيارات بعد — أضِف سيارتك من التبويب التالي.',
-                                style: TextStyle(color: Colors.grey[700])))
+                      child: Text(
+                        'لا توجد سيارات بعد — أضِف سيارتك من التبويب التالي.',
+                        style: TextStyle(color: Colors.grey[700]),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
                         : CarsSlider(cars: cars),
-                    const SingleChildScrollView(child: CarFormCard()),
+                    const SingleChildScrollView(
+                      child: CarFormCard(),
+                    ),
                   ],
                 ),
               ),
@@ -68,14 +100,22 @@ class MyCarsSection extends StatelessWidget {
 
 class CarsSlider extends StatefulWidget {
   final List<dynamic> cars;
-  const CarsSlider({required this.cars});
+  const CarsSlider({super.key, required this.cars});
+
   @override
   State<CarsSlider> createState() => CarsSliderState();
 }
 
 class CarsSliderState extends State<CarsSlider> {
-  final PageController _page = PageController(viewportFraction: 0.6);
+  final PageController _page = PageController(viewportFraction: 0.82);
   int _index = 0;
+
+  @override
+  void dispose() {
+    _page.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -88,19 +128,23 @@ class CarsSliderState extends State<CarsSlider> {
             physics: const BouncingScrollPhysics(),
             itemBuilder: (_, i) {
               final c = widget.cars[i];
-              final title = '${c['manufacturer']} ${c['model']}';
-              final sub = ' ${c['year']} ';
+              final title =
+              '${c['manufacturer'] ?? ''} ${c['model'] ?? ''}'.trim();
+              final year = '${c['year'] ?? ''}';
+              final vin = (c['serialNumber'] ?? c['vin'] ?? '').toString().trim();
+
+              final isActive = _index == i;
 
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
                 margin: EdgeInsets.only(
-                  right: 10,
+                  right: 8,
                   left: i == 0 ? 2 : 0,
-                  bottom: _index == i ? 0 : 10,
-                  top: _index == i ? 0 : 10,
+                  bottom: isActive ? 0 : 10,
+                  top: isActive ? 0 : 10,
                 ),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(20),
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -111,88 +155,99 @@ class CarsSliderState extends State<CarsSlider> {
                       color: Colors.black.withOpacity(0.12),
                       blurRadius: 18,
                       offset: const Offset(0, 10),
-                    )
+                    ),
                   ],
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Column(
                     children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: const BoxDecoration(
-                          color: Colors.white24,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.directions_car,
-                          color: Colors.white,
-                          size: 30,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            return Column(
+                      Row(
+                        children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: const BoxDecoration(
+                              color: Colors.white24,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.directions_car,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  title,
+                                  title.isEmpty ? 'سيارة' : title,
                                   maxLines: 2,
-                                  softWrap: true,
-                                  overflow: TextOverflow.visible,
+                                  overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w900,
                                     fontSize: 16,
-                                    height: 1.3,
+                                    height: 1.25,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 4),
                                 Text(
-                                  sub,
-                                  maxLines: 2,
-                                  softWrap: true,
-                                  overflow: TextOverflow.visible,
+                                  year,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     color: Colors.white70,
                                     fontWeight: FontWeight.w700,
-                                    height: 1.3,
+                                    fontSize: 13,
                                   ),
                                 ),
-                                const SizedBox(height: 10),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 6,
-                                  children: [
-                                    if (c['vin'] != null &&
-                                        (c['vin'] as String).isNotEmpty)
-                                      _pill('VIN: ${c['vin']}'),
-                                    if (c['engine'] != null &&
-                                        c['engine']
-                                            .toString()
-                                            .trim()
-                                            .isNotEmpty)
-                                      _pill('محرك: ${c['engine']}'),
-                                  ],
-                                ),
                               ],
-                            );
-                          },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            children: [
+                              _miniBtn(icon: Icons.edit, tooltip: 'تعديل'),
+                              const SizedBox(height: 8),
+                              _miniBtn(icon: Icons.delete, tooltip: 'حذف'),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            if (vin.isNotEmpty) _pill('VIN: $vin'),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _miniBtn(icon: Icons.edit, tooltip: 'تعديل'),
-                          const SizedBox(height: 8),
-                          _miniBtn(icon: Icons.delete, tooltip: 'حذف'),
-                        ],
+                      const Spacer(),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.10),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          'بيانات السيارة محفوظة',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -201,7 +256,7 @@ class CarsSliderState extends State<CarsSlider> {
             },
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(widget.cars.length, (i) {
@@ -222,122 +277,345 @@ class CarsSliderState extends State<CarsSlider> {
     );
   }
 
-  Widget _pill(String t) => Chip(
-        label: Text(t,
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.w700)),
-        backgroundColor: Colors.white24,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-      );
+  Widget _pill(String t) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.white24,
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Text(
+      t,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w700,
+        fontSize: 12,
+      ),
+    ),
+  );
+
   Widget _miniBtn({required IconData icon, String? tooltip}) => Tooltip(
-        message: tooltip ?? '',
-        child: InkWell(
-          onTap: () {},
+    message: tooltip ?? '',
+    child: InkWell(
+      onTap: () {},
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 42,
+        height: 38,
+        decoration: BoxDecoration(
+          color: Colors.white24,
           borderRadius: BorderRadius.circular(10),
-          child: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-                color: Colors.white24, borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, size: 20, color: Colors.white),
-          ),
         ),
-      );
+        child: Icon(icon, size: 18, color: Colors.white),
+      ),
+    ),
+  );
 }
 
-class CarFormCard extends StatelessWidget {
-  const CarFormCard();
+class CarFormCard extends StatefulWidget {
+  const CarFormCard({super.key});
+
+  @override
+  State<CarFormCard> createState() => _CarFormCardState();
+}
+
+class _CarFormCardState extends State<CarFormCard> {
+  final _formKey = GlobalKey<FormState>();
+
+  String? selectedBrandCode;
+  String? selectedBrandName;
+  String? selectedModel;
+  String? selectedYear;
+  String? serialNumber;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final carProvider = context.read<CarProvider>();
+      if (carProvider.brands.isEmpty) {
+        await carProvider.fetchBrands();
+      }
+    });
+  }
+
+  bool _isValidVin(String? value) {
+    final v = (value ?? '').trim().toUpperCase();
+    if (v.isEmpty) return true; // اختياري
+    return RegExp(r'^[A-HJ-NPR-Z0-9]{17}$').hasMatch(v);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<HomeProvider>(context);
+    final carProvider = context.watch<CarProvider>();
+    final homeProvider = context.read<HomeProvider>();
+
+    final selectedBrandItem = selectedBrandCode == null
+        ? null
+        : (carProvider.brands.any((e) => e['code'] == selectedBrandCode)
+        ? carProvider.brands.firstWhere(
+          (e) => e['code'] == selectedBrandCode,
+    )
+        : null);
+
     return Card(
-      elevation: 6,
+      elevation: 3,
       shadowColor: Colors.black12,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const CardHeader(title: 'إضافة/تحديث سيارة'),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
-                  labelText: 'ماركة السيارة', border: OutlineInputBorder()),
-              value: provider.selectedMake,
-              items: provider.makes
-                  .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                  .toList(),
-              onChanged: provider.setSelectedMake,
-            ),
-            if (provider.selectedMake != null) ...[
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                    labelText: 'الموديل', border: OutlineInputBorder()),
-                value: provider.selectedModel,
-                items: (provider.modelsByMake[provider.selectedMake] ?? [])
-                    .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                    .toList(),
-                onChanged: provider.setSelectedModel,
-              ),
-            ],
-            if (provider.selectedModel != null) ...[
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                    labelText: 'سنة الصنع', border: OutlineInputBorder()),
-                value: provider.selectedYear,
-                items: provider.years
-                    .map((y) => DropdownMenuItem(value: y, child: Text(y)))
-                    .toList(),
-                onChanged: provider.setSelectedYear,
-              ),
-            ],
-            if (provider.selectedYear != null) ...[
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                    labelText: 'نوع الوقود', border: OutlineInputBorder()),
-                value: provider.selectedFuel,
-                items: provider.fuelTypes
-                    .map((f) => DropdownMenuItem(value: f, child: Text(f)))
-                    .toList(),
-                onChanged: provider.setSelectedFuel,
-              ),
-            ],
-            const SizedBox(height: 14),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.save),
-                label: const Text('حفظ السيارة'),
-                onPressed: () async {
-                  final provider = context.read<HomeProvider>();
-                  final result = await provider.submitCar();
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _sectionTitle("بيانات السيارة"),
 
-                  if (!context.mounted) return;
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(result ?? '✅ تم حفظ السيارة بنجاح'),
+              if (carProvider.isLoadingBrands)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(12),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else
+                DropdownSearch<Map<String, dynamic>>(
+                  items: carProvider.brands,
+                  itemAsString: (item) => item['name']?.toString() ?? '',
+                  selectedItem: selectedBrandItem,
+                  dropdownDecoratorProps: const DropDownDecoratorProps(
+                    dropdownSearchDecoration: InputDecoration(
+                      labelText: 'الشركة المصنعة',
+                      prefixIcon: Icon(Icons.car_rental),
+                      border: OutlineInputBorder(),
                     ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  popupProps: const PopupProps.menu(
+                    showSearchBox: true,
+                    searchFieldProps: TextFieldProps(
+                      decoration: InputDecoration(
+                        hintText: 'ابحث عن الشركة...',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  onChanged: (value) async {
+                    final code = value?['code']?.toString();
+                    final name = value?['name']?.toString();
+
+                    setState(() {
+                      selectedBrandCode = code;
+                      selectedBrandName = name;
+                      selectedModel = null;
+                      selectedYear = null;
+                      serialNumber = null;
+                    });
+
+                    if (code == null || code.isEmpty) return;
+                    await context.read<CarProvider>().fetchModels(code);
+                  },
+                ),
+
+              const SizedBox(height: 16),
+
+              if (selectedBrandCode != null)
+                carProvider.isLoadingModels
+                    ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(12),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+                    : DropdownSearch<String>(
+                  items: carProvider.models,
+                  selectedItem: selectedModel,
+                  dropdownDecoratorProps: const DropDownDecoratorProps(
+                    dropdownSearchDecoration: InputDecoration(
+                      labelText: 'موديل السيارة',
+                      prefixIcon: Icon(Icons.directions_car),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  popupProps: const PopupProps.menu(
+                    showSearchBox: true,
+                    searchFieldProps: TextFieldProps(
+                      decoration: InputDecoration(
+                        hintText: 'ابحث عن الموديل...',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    setState(() => selectedModel = value);
+                  },
+                ),
+
+              if (!carProvider.isLoadingModels &&
+                  selectedBrandCode != null &&
+                  carProvider.models.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'لا توجد موديلات متاحة',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
+                ),
+
+              const SizedBox(height: 16),
+
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'سنة الصنع',
+                  prefixIcon: Icon(Icons.calendar_month),
+                  border: OutlineInputBorder(),
+                ),
+                items: CarData.years
+                    .map(
+                      (y) => DropdownMenuItem<String>(
+                    value: y,
+                    child: Text(y),
+                  ),
+                )
+                    .toList(),
+                value: selectedYear,
+                onChanged: (v) => setState(() => selectedYear = v),
+              ),
+
+              if (selectedYear != null) ...[
+                const SizedBox(height: 16),
+                TextFormField(
+                  initialValue: serialNumber,
+                  textCapitalization: TextCapitalization.characters,
+                  maxLength: 17,
+                  decoration: const InputDecoration(
+                    labelText: 'الرقم التسلسلي (VIN)',
+                    hintText: 'مثال: 1HGCM82633A123456',
+                    prefixIcon: Icon(Icons.confirmation_number),
+                    border: OutlineInputBorder(),
+                    counterText: '',
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'[A-Za-z0-9]'),
+                    ),
+                    TextInputFormatter.withFunction((oldValue, newValue) {
+                      final upper = newValue.text.toUpperCase();
+
+                      if (upper.contains('I') ||
+                          upper.contains('O') ||
+                          upper.contains('Q')) {
+                        return oldValue;
+                      }
+
+                      if (upper.length > 17) {
+                        return oldValue;
+                      }
+
+                      return TextEditingValue(
+                        text: upper,
+                        selection: TextSelection.collapsed(
+                          offset: upper.length,
+                        ),
+                      );
+                    }),
+                  ],
+                  validator: (value) {
+                    final v = (value ?? '').trim().toUpperCase();
+
+                    if (v.isEmpty) return null;
+                    if (v.length != 17) {
+                      return 'يجب أن يكون VIN من 17 خانة';
+                    }
+                    if (!_isValidVin(v)) {
+                      return 'VIN غير صالح. استخدم أرقامًا وحروفًا كبيرة بدون I أو O أو Q';
+                    }
+                    return null;
+                  },
+                  onChanged: (value) {
+                    setState(() {
+                      serialNumber = value.toUpperCase();
+                    });
+                  },
+                ),
+              ],
+
+              const SizedBox(height: 18),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.save),
+                  label: const Text('حفظ السيارة'),
+                  onPressed: () async {
+                    if (selectedBrandName == null ||
+                        selectedModel == null ||
+                        selectedYear == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('يرجى تحديد الشركة والموديل والسنة'),
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (!_formKey.currentState!.validate()) return;
+
+                    final result = await homeProvider.submitCarDirect(
+                      manufacturer: selectedBrandName!,
+                      model: selectedModel!,
+                      year: selectedYear!,
+                      serialNumber:
+                      (serialNumber == null || serialNumber!.trim().isEmpty)
+                          ? null
+                          : serialNumber!.trim(),
+                    );
+
+                    if (!context.mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(result ?? '✅ تم حفظ السيارة بنجاح'),
+                      ),
+                    );
+
+                    if (result == null) {
+                      setState(() {
+                        selectedBrandCode = null;
+                        selectedBrandName = null;
+                        selectedModel = null;
+                        selectedYear = null;
+                        serialNumber = null;
+                      });
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );
@@ -346,19 +624,28 @@ class CarFormCard extends StatelessWidget {
 
 class CardHeader extends StatelessWidget {
   final String title;
-  const CardHeader({required this.title});
+  const CardHeader({super.key, required this.title});
+
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         Container(
-            width: 8,
-            height: 22,
-            decoration: BoxDecoration(
-                color: Colors.blue, borderRadius: BorderRadius.circular(8))),
+          width: 8,
+          height: 22,
+          decoration: BoxDecoration(
+            color: Colors.blue,
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
         const SizedBox(width: 8),
-        Text(title,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
       ],
     );
   }

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../utils/app_settings.dart';
+
 class PaymentTestPage extends StatefulWidget {
   final String orderId;
   final int amount;
@@ -31,7 +33,7 @@ class _PaymentTestPageState extends State<PaymentTestPage> {
   }
 
   Future<void> _initPayment() async {
-    final url = Uri.parse("https://parttec.onrender.com/payment/init");
+    final url = Uri.parse('${AppSettings.serverurl}/payment/init');
     final response = await http.post(
       url,
       headers: {"Content-Type": "application/json"},
@@ -57,7 +59,7 @@ class _PaymentTestPageState extends State<PaymentTestPage> {
 
   Future<void> _checkOrderStatus() async {
     final url = Uri.parse(
-        "https://parttec.onrender.com/payment/status/${widget.orderId}");
+        "${AppSettings.serverurl}/payment/status/${widget.orderId}");
     final response = await http.get(url);
 
     if (response.statusCode == 200) {

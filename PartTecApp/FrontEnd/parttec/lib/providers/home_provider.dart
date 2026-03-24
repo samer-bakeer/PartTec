@@ -9,14 +9,31 @@ import '../utils/session_store.dart';
 class HomeProvider with ChangeNotifier {
   String? _userId;
 
+  HomeProvider() {
+    fetchBrands();
+  }
+
   bool showCars = true;
+  bool isPrivate = false;
+
   String? selectedMake;
+  String? selectedBrandCode;
   String? selectedModel;
   String? selectedYear;
-  String? selectedFuel;
+  String? serialNumber;
+
   List<dynamic> userCars = [];
   List<Part> availableParts = [];
   bool isLoadingAvailable = true;
+
+  List<Part> recommendedParts = [];
+  bool isLoadingRecommendations = false;
+
+  bool isLoadingBrands = false;
+  bool isLoadingModels = false;
+
+  List<Map<String, dynamic>> brands = [];
+  List<String> models = [];
 
   final List<String> makes = [
     'Hyundai',
@@ -70,7 +87,7 @@ class HomeProvider with ChangeNotifier {
     'Tesla',
     'Toyota',
     'Volkswagen',
-    'Volvo'
+    'Volvo',
   ];
 
   final Map<String, List<String>> modelsByMake = {
@@ -87,13 +104,81 @@ class HomeProvider with ChangeNotifier {
     '2021',
     '2020',
     '2019',
-    '2018'
+    '2018',
   ];
 
-  final List<String> fuelTypes = ['بترول', 'ديزل'];
 
-  List<Part> recommendedParts = [];
-  bool isLoadingRecommendations = false;
+  Future<String?> submitCarDirect({
+    required String manufacturer,
+    required String model,
+    required String year,
+    String? serialNumber,
+  }) async {
+    final uid = await SessionStore.userId();
+    if (uid == null || uid.isEmpty) {
+      return '⚠️ يرجى تسجيل الدخول أولاً';
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('${AppSettings.serverurl}/cars/add/$uid'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'manufacturer': manufacturer,
+          'model': model,
+          'year': year,
+          'serialNumber': serialNumber,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        await fetchUserCars();
+        notifyListeners();
+        return null;
+      } else {
+        return '❌ فشل في الحفظ: ${response.body}';
+      }
+    } catch (e) {
+      return '❌ خطأ في الاتصال بالخادم';
+    }
+  }
+  Future<void> fetchBrands() async {
+    try {
+      isLoadingBrands = true;
+      notifyListeners();
+
+      brands = makes
+          .map(
+            (make) => {
+          'code': make,
+          'name': make,
+        },
+      )
+          .toList();
+    } catch (e) {
+      brands = [];
+      debugPrint('خطأ أثناء تحميل الشركات: $e');
+    } finally {
+      isLoadingBrands = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchModels(String brandCode) async {
+    try {
+      isLoadingModels = true;
+      models = [];
+      notifyListeners();
+
+      models = modelsByMake[brandCode] ?? [];
+    } catch (e) {
+      models = [];
+      debugPrint('خطأ أثناء تحميل الموديلات: $e');
+    } finally {
+      isLoadingModels = false;
+      notifyListeners();
+    }
+  }
 
   Future<void> fetchRecommendations() async {
     try {
@@ -102,9 +187,11 @@ class HomeProvider with ChangeNotifier {
       notifyListeners();
 
       final uri =
-          Uri.parse('${AppSettings.serverurl}/part/getRecommendations/${uid}');
+      Uri.parse('${AppSettings.serverurl}/part/getRecommendations/$uid');
       final res = await http.get(uri);
-      print('recomendations ${res.body}');
+
+      debugPrint('recommendations ${res.body}');
+
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
 
@@ -128,7 +215,7 @@ class HomeProvider with ChangeNotifier {
   Future<void> fetchUserCars() async {
     final uid = await SessionStore.userId();
     if (uid == null || uid.isEmpty) {
-      print('⚠️ لم يتم العثور على userId. يرجى تسجيل الدخول.');
+      debugPrint('⚠️ لم يتم العثور على userId. يرجى تسجيل الدخول.');
       return;
     }
 
@@ -142,14 +229,13 @@ class HomeProvider with ChangeNotifier {
         userCars = data;
         notifyListeners();
       } else {
-        print('❌ فشل تحميل السيارات: ${response.body}');
+        debugPrint('❌ فشل تحميل السيارات: ${response.body}');
       }
     } catch (e) {
-      print('خطأ أثناء تحميل السيارات: $e');
+      debugPrint('خطأ أثناء تحميل السيارات: $e');
     }
   }
 
-  bool isPrivate = false;
   void toggleIsPrivate() {
     isPrivate = !isPrivate;
     notifyListeners();
@@ -159,7 +245,7 @@ class HomeProvider with ChangeNotifier {
   Future<void> fetchAvailableParts() async {
     final uid = await SessionStore.userId();
     if (uid == null || uid.isEmpty) {
-      print('⚠️ لا يوجد userId، لا يمكن تحميل القطع الخاصة.');
+      debugPrint('⚠️ لا يوجد userId، لا يمكن تحميل القطع الخاصة.');
       availableParts = [];
       notifyListeners();
       return;
@@ -174,20 +260,19 @@ class HomeProvider with ChangeNotifier {
           : '${AppSettings.serverurl}/part/viewAllParts';
 
       final response = await http.get(Uri.parse(url));
-      print(response.body);
+      debugPrint(response.body);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> decoded = json.decode(response.body);
-        final dynamic list =
-            decoded['compatibleParts'] ?? decoded['parts'] ?? [];
+        final dynamic list = decoded['compatibleParts'] ?? decoded['parts'] ?? [];
         final List<dynamic> jsonList = list is List ? list : [];
         availableParts = jsonList.map((e) => Part.fromJson(e)).toList();
       } else {
-        print('❌ فشل تحميل القطع: ${response.body}');
+        debugPrint('❌ فشل تحميل القطع: ${response.body}');
         availableParts = [];
       }
     } catch (e) {
-      print('❌ خطأ أثناء تحميل القطع: $e');
+      debugPrint('❌ خطأ أثناء تحميل القطع: $e');
       availableParts = [];
     } finally {
       isLoadingAvailable = false;
@@ -201,10 +286,10 @@ class HomeProvider with ChangeNotifier {
       return '⚠️ يرجى تسجيل الدخول أولاً';
     }
 
-    if (selectedMake == null ||
+    if (selectedBrandCode == null ||
         selectedModel == null ||
         selectedYear == null ||
-        selectedFuel == null) {
+        serialNumber == null) {
       return 'يرجى تحديد جميع البيانات';
     }
 
@@ -213,23 +298,18 @@ class HomeProvider with ChangeNotifier {
         Uri.parse('${AppSettings.serverurl}/cars/add/$uid'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'manufacturer': selectedMake,
+          'manufacturer': selectedMake ?? selectedBrandCode,
           'model': selectedModel,
           'year': selectedYear,
-          'fuelType': selectedFuel,
+          'serialNumber': serialNumber,
         }),
       );
 
       if (response.statusCode == 201) {
-        selectedMake = null;
-        selectedModel = null;
-        selectedYear = null;
-        selectedFuel = null;
-
+        clearCarForm();
         await fetchUserCars();
         notifyListeners();
-
-        return null; // null = نجاح
+        return null;
       } else {
         return '❌ فشل في الحفظ: ${response.body}';
       }
@@ -238,17 +318,47 @@ class HomeProvider with ChangeNotifier {
     }
   }
 
+  void clearCarForm() {
+    selectedMake = null;
+    selectedBrandCode = null;
+    selectedModel = null;
+    selectedYear = null;
+    serialNumber = null;
+    models = [];
+    notifyListeners();
+  }
+
   void toggleShowCars() {
     showCars = !showCars;
     notifyListeners();
   }
 
+  void setSelectedBrand(Map<String, dynamic>? value) {
+    selectedBrandCode = value?['code']?.toString();
+    selectedMake = value?['name']?.toString();
+    selectedModel = null;
+    selectedYear = null;
+    serialNumber = null;
+    models = [];
+    notifyListeners();
+
+    if (selectedBrandCode != null) {
+      fetchModels(selectedBrandCode!);
+    }
+  }
+
   void setSelectedMake(String? value) {
+    selectedBrandCode = value;
     selectedMake = value;
     selectedModel = null;
     selectedYear = null;
-    selectedFuel = null;
+    serialNumber = null;
+    models = [];
     notifyListeners();
+
+    if (value != null) {
+      fetchModels(value);
+    }
   }
 
   void setSelectedModel(String? value) {
@@ -261,8 +371,8 @@ class HomeProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void setSelectedFuel(String? value) {
-    selectedFuel = value;
+  void setSerialNumber(String? value) {
+    serialNumber = value;
     notifyListeners();
   }
 }

@@ -8,6 +8,15 @@ import '../utils/app_settings.dart';
 import '../utils/session_store.dart';
 
 class OrderProvider with ChangeNotifier {
+  List<Map<String, dynamic>> _userOrders = [];
+  bool _loadingUserOrders = false;
+  String? _userOrdersError;
+  bool _deletingOrder = false;
+
+  List<Map<String, dynamic>> get userOrders => _userOrders;
+  bool get loadingUserOrders => _loadingUserOrders;
+  String? get userOrdersError => _userOrdersError;
+  bool get deletingOrder => _deletingOrder;
   bool isLoading = false;
   String? error;
   Map<String, dynamic>? orderResponse;
@@ -18,7 +27,11 @@ class OrderProvider with ChangeNotifier {
 
   String? _userId;
   String? _role;
+  String? _deletingOrderId;
 
+  String? get deletingOrderId => _deletingOrderId;
+
+  bool isDeletingOrder(String orderId) => _deletingOrderId == orderId;
   final Map<String, List<Map<String, dynamic>>> _offersByOrderId = {};
   final Set<String> _loadingOffersOrderIds = {};
 
@@ -33,10 +46,26 @@ class OrderProvider with ChangeNotifier {
   double? durationMin;
   bool loadingDelivery = false;
   String? deliveryError;
+  String? _deleteOrderError;
+
+
+  String? get deleteOrderError => _deleteOrderError;
+
 
   Future<String?> _getUserId() async => await SessionStore.userId();
   Future<String?> _getRole() async => await SessionStore.role();
-
+  String _mapDeleteOrderError(dynamic errorCode) {
+    switch (errorCode?.toString()) {
+      case 'cannot_delete_after_30_minutes':
+        return 'لا يمكن حذف الطلب بعد مرور 30 دقيقة على إنشائه.';
+      case 'cannot_delete_order_after_20_minutes_confirmation':
+        return 'لا يمكن حذف الطلب بعد 20 دقيقة من تأكيده.';
+      case 'order_not_found':
+        return 'الطلب غير موجود.';
+      default:
+        return 'تعذر حذف الطلب حاليًا.';
+    }
+  }
   Map<String, dynamic> _decodeToMapBytes(List<int> bodyBytes) {
     final raw = jsonDecode(utf8.decode(bodyBytes));
     return (raw is Map)
@@ -58,7 +87,153 @@ class OrderProvider with ChangeNotifier {
     if (lower.endsWith('.gif')) return MediaType('image', 'gif');
     return MediaType('image', 'jpeg');
   }
+  void toggleOrderExpansion(int index, bool value) {
+    if (index >= 0 && index < _userOrders.length) {
+      _userOrders[index]['expanded'] = value;
+      notifyListeners();
+    }
+  }
+  Future<bool> deleteOrder(String orderId) async {
+    _deletingOrderId = orderId;
+    _deleteOrderError = null;
+    notifyListeners();
 
+    try {
+      final url = Uri.parse('${AppSettings.serverurl}/order/deleteorder/$orderId');
+
+      final res = await http.delete(
+        url,
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      Map<String, dynamic> data = {};
+      if (res.body.isNotEmpty) {
+        try {
+          data = _decodeToMapString(res.body);
+        } catch (_) {}
+      }
+
+      if (res.statusCode == 200 || res.statusCode == 204) {
+        _deleteOrderError = null;
+        _deletingOrderId = null;
+        notifyListeners();
+        return true;
+      }
+
+      final backendMessage = data['message'];
+      final backendError = data['error'];
+
+      _deleteOrderError =
+          backendMessage?.toString() ??
+              _mapDeleteOrderError(backendError);
+
+      _deletingOrderId = null;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _deleteOrderError = 'حدث خطأ أثناء الاتصال بالخادم.';
+      _deletingOrderId = null;
+      notifyListeners();
+      return false;
+    }
+  }
+  Future<void> fetchUserOrders() async {
+    _loadingUserOrders = true;
+    _userOrdersError = null;
+    notifyListeners();
+
+    try {
+      final uid = await _getUserId();
+      if (uid == null || uid.isEmpty) {
+        _userOrdersError = "⚠️ يرجى تسجيل الدخول أولاً.";
+        _loadingUserOrders = false;
+        notifyListeners();
+        return;
+      }
+
+      final url = Uri.parse("${AppSettings.serverurl}/order/viewuserorder/$uid");
+      final res = await http.get(url);
+
+      if (res.statusCode == 200) {
+        final decoded = json.decode(res.body);
+        final rawOrders = decoded is Map ? decoded['orders'] : decoded;
+
+        if (rawOrders is List) {
+          _userOrders = rawOrders.whereType<Map>().map((o) {
+            final map = Map<String, dynamic>.from(o);
+
+            final fee = map['fee'] ?? (map['delivery']?['fee'] ?? 0);
+
+            final src = (map['cartIds'] ?? map['items']) as List?;
+            final items = (src ?? []).whereType<Map>().map<Map<String, dynamic>>((it) {
+              final itm = Map<String, dynamic>.from(it);
+              final part = (itm['partId'] ?? itm);
+
+              String? name, manufacturer, model, notes;
+              dynamic price, year;
+              String? image;
+
+              if (part is Map) {
+                final pMap = Map<String, dynamic>.from(part);
+                name = pMap['name']?.toString();
+                manufacturer = pMap['manufacturer']?.toString();
+                model = pMap['model']?.toString();
+                year = pMap['year'];
+                notes = pMap['notes']?.toString();
+                price = pMap['price'];
+
+                if (pMap['imageUrl'] is List && pMap['imageUrl'].isNotEmpty) {
+                  image = pMap['imageUrl'][0].toString();
+                } else if (pMap['imageUrl'] is String) {
+                  image = pMap['imageUrl'];
+                }
+              }
+
+              return {
+                "name": name ?? "اسم غير معروف",
+                "image": image,
+                "price": price,
+                "manufacturer": manufacturer ?? "-",
+                "model": model ?? "-",
+                "year": year?.toString() ?? "-",
+                "notes": notes ?? "لا يوجد",
+                "status": itm['status'] ?? map['status'],
+                "canCancel": (map['status'] == 'قيد التجهيز' || map['status'] == 'مؤكد'),
+                "cartId": itm['_id'] ?? "",
+              };
+            }).toList();
+
+            final partsTotal = items.fold<double>(
+              0,
+                  (sum, it) => sum + (double.tryParse(it['price']?.toString() ?? "0") ?? 0),
+            );
+
+            final grandTotal =
+                partsTotal + (double.tryParse(fee.toString()) ?? 0);
+
+            return {
+              "orderId": map['_id']?.toString() ?? "",
+              "status": map['status'] ?? "غير معروف",
+              "expanded": false,
+              "items": items,
+              "fee": fee,
+              "partsTotal": partsTotal,
+              "grandTotal": grandTotal,
+            };
+          }).toList();
+        } else {
+          _userOrders = [];
+        }
+      } else {
+        _userOrdersError = "فشل التحميل (${res.statusCode})";
+      }
+    } catch (e) {
+      _userOrdersError = "خطأ: $e";
+    }
+
+    _loadingUserOrders = false;
+    notifyListeners();
+  }
   Future<void> fetchDeliveryPricing({
     required String partId,
     required double toLat,

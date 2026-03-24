@@ -14,7 +14,7 @@ class CarProvider with ChangeNotifier {
 
   bool _isLoading = false;
   bool isLoadingModels = false;
-
+  bool isLoadingBrands = false;
   bool get isLoading => _isLoading;
 
   // جلب الشركات
