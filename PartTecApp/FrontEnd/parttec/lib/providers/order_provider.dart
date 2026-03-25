@@ -51,7 +51,165 @@ class OrderProvider with ChangeNotifier {
 
   String? get deleteOrderError => _deleteOrderError;
 
+  List<Map<String, dynamic>> _specificOrders = [];
+  bool _loadingSpecificOrders = false;
+  String? _specificOrdersError;
 
+  String? _deletingSpecificOrderId;
+  String? _deleteSpecificOrderError;
+
+  List<Map<String, dynamic>> get specificOrders => _specificOrders;
+  bool get loadingSpecificOrders => _loadingSpecificOrders;
+  String? get specificOrdersError => _specificOrdersError;
+  String? get deleteSpecificOrderError => _deleteSpecificOrderError;
+  String? get deletingSpecificOrderId => _deletingSpecificOrderId;
+
+  bool isDeletingSpecificOrder(String orderId) =>
+      _deletingSpecificOrderId == orderId;
+
+  String _extractId(dynamic raw) {
+    if (raw is Map) {
+      return raw['_id']?.toString() ??
+          raw['id']?.toString() ??
+          raw['orderId']?.toString() ??
+          '';
+    }
+    return raw?.toString() ?? '';
+  }
+
+  void toggleSpecificOrderExpansion(int index, bool value) {
+    if (index >= 0 && index < _specificOrders.length) {
+      _specificOrders[index]['expanded'] = value;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchSpecificOrders() async {
+    _loadingSpecificOrders = true;
+    _specificOrdersError = null;
+    notifyListeners();
+
+    try {
+      final uid = await _getUserId();
+      if (uid == null || uid.isEmpty) {
+        _specificOrdersError = "⚠️ يرجى تسجيل الدخول أولاً.";
+        _loadingSpecificOrders = false;
+        notifyListeners();
+        return;
+      }
+
+      final url =
+      Uri.parse("${AppSettings.serverurl}/order/viewuserspicificorder/$uid");
+      final res = await http.get(url);
+
+      if (res.statusCode == 200) {
+        final decoded = json.decode(res.body);
+        final rawOrders = decoded is Map ? decoded['orders'] : decoded;
+
+        if (rawOrders is List) {
+          _specificOrders = rawOrders.whereType<Map>().map((o) {
+            final map = Map<String, dynamic>.from(o);
+
+            final orderId = _extractId(
+              map['_id'] ?? map['orderId'] ?? map['id'],
+            );
+
+            final image = map['imageUrl'];
+            final imageUrls = map['imageUrls'];
+
+            return {
+              "orderId": orderId,
+              "status": map['status'] ?? "غير معروف",
+              "expanded": false,
+              "items": [
+                {
+                  "name": map['name'] ?? "اسم غير معروف",
+                  "image": image,
+                  "imageUrls": imageUrls,
+                  "price": map['price'],
+                  "status": map['status'],
+                  "manufacturer": map['manufacturer'] ?? "غير معروف",
+                  "model": map['model'] ?? "غير معروف",
+                  "year": map['year']?.toString() ?? "-",
+                  "notes": map['notes'] ?? "لا يوجد",
+                  "serialNumber":map['serialNumber']?? "-",
+                  "createdAt":map['createdAt']?? "-",
+                  "count": map['count']?.toString() ?? "0",
+                }
+              ],
+            };
+          }).toList();
+        } else {
+          _specificOrders = [];
+        }
+      } else {
+        _specificOrdersError = "فشل التحميل (${res.statusCode})";
+      }
+    } catch (e) {
+      _specificOrdersError = "خطأ: $e";
+    }
+
+    _loadingSpecificOrders = false;
+    notifyListeners();
+  }
+
+  Future<bool> deleteSpecificOrder(String orderId) async {
+    _deletingSpecificOrderId = orderId;
+    _deleteSpecificOrderError = null;
+    notifyListeners();
+
+    try {
+      if (orderId.trim().isEmpty) {
+        _deleteSpecificOrderError = 'معرّف الطلب غير موجود.';
+        return false;
+      }
+
+      final url = Uri.parse(
+        '${AppSettings.serverurl}/order/deletespicificorder/$orderId',
+      );
+
+      debugPrint('DELETE specific url: $url');
+
+      final res = await http.delete(
+        url,
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      debugPrint('DELETE specific status: ${res.statusCode}');
+      debugPrint('DELETE specific body: ${utf8.decode(res.bodyBytes)}');
+
+      Map<String, dynamic> data = {};
+      if (res.bodyBytes.isNotEmpty) {
+        try {
+          data = _decodeToMapBytes(res.bodyBytes);
+        } catch (_) {}
+      }
+
+      if (res.statusCode == 200 || res.statusCode == 204) {
+        _specificOrders.removeWhere((o) => o['orderId'] == orderId);
+        _deleteSpecificOrderError = null;
+        return true;
+      }
+
+      final backendMessage = data['message']?.toString();
+      final backendError = data['error']?.toString();
+
+      _deleteSpecificOrderError =
+      (backendMessage != null && backendMessage.isNotEmpty)
+          ? backendMessage
+          : (backendError != null && backendError.isNotEmpty
+          ? _mapDeleteOrderError(backendError)
+          : 'تعذر حذف الطلب');
+
+      return false;
+    } catch (e) {
+      _deleteSpecificOrderError = 'حدث خطأ أثناء الاتصال بالخادم.';
+      return false;
+    } finally {
+      _deletingSpecificOrderId = null;
+      notifyListeners();
+    }
+  }
   Future<String?> _getUserId() async => await SessionStore.userId();
   Future<String?> _getRole() async => await SessionStore.role();
   String _mapDeleteOrderError(dynamic errorCode) {
@@ -63,7 +221,7 @@ class OrderProvider with ChangeNotifier {
       case 'order_not_found':
         return 'الطلب غير موجود.';
       default:
-        return 'تعذر حذف الطلب حاليًا.';
+        return 'تعذر حذف الطلب .';
     }
   }
   Map<String, dynamic> _decodeToMapBytes(List<int> bodyBytes) {
@@ -96,45 +254,55 @@ class OrderProvider with ChangeNotifier {
   Future<bool> deleteOrder(String orderId) async {
     _deletingOrderId = orderId;
     _deleteOrderError = null;
+    debugPrint('UI orderId before delete: $orderId');
     notifyListeners();
 
     try {
+      if (orderId.trim().isEmpty) {
+        _deleteOrderError = 'معرّف الطلب غير موجود.';
+        return false;
+      }
+
+      debugPrint('Deleting orderId: $orderId');
+
       final url = Uri.parse('${AppSettings.serverurl}/order/deleteorder/$orderId');
+      debugPrint('DELETE url: $url');
 
       final res = await http.delete(
         url,
         headers: {'Content-Type': 'application/json'},
       );
 
+      debugPrint('DELETE status: ${res.statusCode}');
+      debugPrint('DELETE raw body: ${utf8.decode(res.bodyBytes)}');
+
       Map<String, dynamic> data = {};
-      if (res.body.isNotEmpty) {
+      if (res.bodyBytes.isNotEmpty) {
         try {
-          data = _decodeToMapString(res.body);
+          data = _decodeToMapBytes(res.bodyBytes);
         } catch (_) {}
       }
 
       if (res.statusCode == 200 || res.statusCode == 204) {
+        _userOrders.removeWhere((o) => o['orderId'] == orderId);
         _deleteOrderError = null;
-        _deletingOrderId = null;
-        notifyListeners();
         return true;
       }
 
-      final backendMessage = data['message'];
-      final backendError = data['error'];
+      final backendMessage = data['message']?.toString();
+      final backendError = data['error']?.toString();
 
-      _deleteOrderError =
-          backendMessage?.toString() ??
-              _mapDeleteOrderError(backendError);
+      _deleteOrderError = (backendMessage != null && backendMessage.isNotEmpty)
+          ? backendMessage
+          : _mapDeleteOrderError(backendError);
 
-      _deletingOrderId = null;
-      notifyListeners();
       return false;
     } catch (e) {
       _deleteOrderError = 'حدث خطأ أثناء الاتصال بالخادم.';
+      return false;
+    } finally {
       _deletingOrderId = null;
       notifyListeners();
-      return false;
     }
   }
   Future<void> fetchUserOrders() async {
@@ -212,7 +380,11 @@ class OrderProvider with ChangeNotifier {
                 partsTotal + (double.tryParse(fee.toString()) ?? 0);
 
             return {
-              "orderId": map['_id']?.toString() ?? "",
+              "orderId": (
+                  map['_id'] ??
+                      map['orderId'] ??
+                      map['id']
+              )?.toString() ?? "",
               "status": map['status'] ?? "غير معروف",
               "expanded": false,
               "items": items,

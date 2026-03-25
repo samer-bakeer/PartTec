@@ -98,31 +98,31 @@ class OrderCard extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Row(
-              children: [
-                Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _statusColor().withOpacity(0.10),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    status,
-                    style: TextStyle(
-                      color: _statusColor(),
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // subtitle: Padding(
+          //   padding: const EdgeInsets.only(top: 6),
+          //   child: Row(
+          //     children: [
+          //       Container(
+          //         padding:
+          //         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          //         decoration: BoxDecoration(
+          //           color: _statusColor().withOpacity(0.10),
+          //           borderRadius: BorderRadius.circular(20),
+          //         ),
+          //         child: Text(
+          //           'status',
+          //           style: TextStyle(
+          //             color: _statusColor(),
+          //             fontWeight: FontWeight.w600,
+          //             fontSize: 12,
+          //           ),
+          //         ),
+          //       ),
+          //     ],
+          //   ),
+          // ),
           trailing: _canDelete
-              ? isDeleting
+              ? (isDeleting
               ? const SizedBox(
             width: 24,
             height: 24,
@@ -138,8 +138,8 @@ class OrderCard extends StatelessWidget {
               Icons.delete_outline_rounded,
               color: AppColors.error,
             ),
-          )
-              : const Icon(Icons.expand_more),
+          ))
+              : null,
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -187,7 +187,7 @@ class _OrderItemCard extends StatelessWidget {
               ? ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: Image.network(
-              image,
+              image!,
               width: 78,
               height: 78,
               fit: BoxFit.cover,
