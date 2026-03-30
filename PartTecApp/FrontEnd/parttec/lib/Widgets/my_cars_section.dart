@@ -15,16 +15,266 @@ class MyCarsSection extends StatefulWidget {
 }
 
 class _MyCarsSectionState extends State<MyCarsSection> {
+  String? _extractCarId(Map<String, dynamic> car) {
+    return car['id']?.toString() ??
+        car['_id']?.toString() ??
+        car['carId']?.toString() ??
+        car['vehicleId']?.toString();
+  }
+
   @override
   void initState() {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final homeProvider = context.read<HomeProvider>();
+      final carProvider = context.read<CarProvider>();
+
       if (homeProvider.userCars.isEmpty) {
         await homeProvider.fetchUserCars();
       }
+
+      carProvider.setCars(homeProvider.userCars);
     });
+  }
+
+  Future<void> _deleteCar(Map<String, dynamic> car) async {
+    final carProvider = context.read<CarProvider>();
+    final homeProvider = context.read<HomeProvider>();
+
+    final carId = _extractCarId(car);
+
+    if (carId == null || carId.isEmpty) {
+      debugPrint('car object delete = $car');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('معرف السيارة غير موجود')),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('حذف السيارة'),
+        content: const Text('هل أنت متأكد أنك تريد حذف هذه السيارة؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final success = await carProvider.deleteCar(carId);
+
+    if (!mounted) return;
+
+    if (success) {
+      await homeProvider.fetchUserCars();
+      carProvider.setCars(homeProvider.userCars);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ تم حذف السيارة بنجاح')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('❌ فشل حذف السيارة')),
+      );
+    }
+  }
+
+  Future<void> _showEditDialog(Map<String, dynamic> car) async {
+    final carProvider = context.read<CarProvider>();
+    final homeProvider = context.read<HomeProvider>();
+
+    final carId = _extractCarId(car);
+
+    if (carId == null || carId.isEmpty) {
+      debugPrint('car object edit = $car');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('معرف السيارة غير موجود')),
+      );
+      return;
+    }
+
+    final formKey = GlobalKey<FormState>();
+
+    String manufacturer = (car['manufacturer'] ?? '').toString();
+    String model = (car['model'] ?? '').toString();
+    String year = (car['year'] ?? '').toString();
+    String serialNumber = (car['serialNumber'] ?? car['vin'] ?? '').toString();
+
+    bool isValidVin(String? value) {
+      final v = (value ?? '').trim().toUpperCase();
+      if (v.isEmpty) return true;
+      return RegExp(r'^[A-HJ-NPR-Z0-9]{17}$').hasMatch(v);
+    }
+
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('تعديل السيارة'),
+        content: StatefulBuilder(
+          builder: (context, setLocalState) {
+            return Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      initialValue: manufacturer,
+                      decoration: const InputDecoration(
+                        labelText: 'الشركة المصنعة',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (v) => manufacturer = v,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'يرجى إدخال الشركة المصنعة';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      initialValue: model,
+                      decoration: const InputDecoration(
+                        labelText: 'موديل السيارة',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (v) => model = v,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'يرجى إدخال موديل السيارة';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: year.isEmpty ? null : year,
+                      decoration: const InputDecoration(
+                        labelText: 'سنة الصنع',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: CarData.years.map((y) {
+                        return DropdownMenuItem<String>(
+                          value: y,
+                          child: Text(y),
+                        );
+                      }).toList(),
+                      onChanged: (v) => setLocalState(() => year = v ?? ''),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) {
+                          return 'يرجى اختيار سنة الصنع';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      initialValue: serialNumber,
+                      textCapitalization: TextCapitalization.characters,
+                      maxLength: 17,
+                      decoration: const InputDecoration(
+                        labelText: 'الرقم التسلسلي (VIN)',
+                        hintText: 'مثال: 1HGCM82633A123456',
+                        border: OutlineInputBorder(),
+                        counterText: '',
+                      ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'[A-Za-z0-9]'),
+                        ),
+                        TextInputFormatter.withFunction((oldValue, newValue) {
+                          final upper = newValue.text.toUpperCase();
+
+                          if (upper.contains('I') ||
+                              upper.contains('O') ||
+                              upper.contains('Q')) {
+                            return oldValue;
+                          }
+
+                          if (upper.length > 17) {
+                            return oldValue;
+                          }
+
+                          return TextEditingValue(
+                            text: upper,
+                            selection: TextSelection.collapsed(
+                              offset: upper.length,
+                            ),
+                          );
+                        }),
+                      ],
+                      validator: (value) {
+                        final v = (value ?? '').trim().toUpperCase();
+                        if (v.isEmpty) return null;
+                        if (v.length != 17) {
+                          return 'يجب أن يكون VIN من 17 خانة';
+                        }
+                        if (!isValidVin(v)) {
+                          return 'VIN غير صالح';
+                        }
+                        return null;
+                      },
+                      onChanged: (v) => serialNumber = v.toUpperCase(),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+
+              final success = await carProvider.editCar(
+                carId: carId,
+                manufacturer: manufacturer.trim(),
+                model: model.trim(),
+                year: year,
+                serialNumber:
+                serialNumber.trim().isEmpty ? null : serialNumber.trim(),
+              );
+
+              if (!context.mounted) return;
+
+              if (success) {
+                await homeProvider.fetchUserCars();
+                carProvider.setCars(homeProvider.userCars);
+
+                Navigator.pop(context);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('✅ تم تعديل السيارة بنجاح')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('❌ فشل تعديل السيارة')),
+                );
+              }
+            },
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -83,7 +333,11 @@ class _MyCarsSectionState extends State<MyCarsSection> {
                         textAlign: TextAlign.center,
                       ),
                     )
-                        : CarsSlider(cars: cars),
+                        : CarsSlider(
+                      cars: cars,
+                      onEdit: _showEditDialog,
+                      onDelete: _deleteCar,
+                    ),
                     const SingleChildScrollView(
                       child: CarFormCard(),
                     ),
@@ -100,7 +354,15 @@ class _MyCarsSectionState extends State<MyCarsSection> {
 
 class CarsSlider extends StatefulWidget {
   final List<dynamic> cars;
-  const CarsSlider({super.key, required this.cars});
+  final void Function(Map<String, dynamic> car)? onEdit;
+  final void Function(Map<String, dynamic> car)? onDelete;
+
+  const CarsSlider({
+    super.key,
+    required this.cars,
+    this.onEdit,
+    this.onDelete,
+  });
 
   @override
   State<CarsSlider> createState() => CarsSliderState();
@@ -127,11 +389,13 @@ class CarsSliderState extends State<CarsSlider> {
             onPageChanged: (i) => setState(() => _index = i),
             physics: const BouncingScrollPhysics(),
             itemBuilder: (_, i) {
-              final c = widget.cars[i];
+              final c = Map<String, dynamic>.from(widget.cars[i]);
+
               final title =
               '${c['manufacturer'] ?? ''} ${c['model'] ?? ''}'.trim();
               final year = '${c['year'] ?? ''}';
-              final vin = (c['serialNumber'] ?? c['vin'] ?? '').toString().trim();
+              final vin =
+              (c['serialNumber'] ?? c['vin'] ?? '').toString().trim();
 
               final isActive = _index == i;
 
@@ -210,9 +474,23 @@ class CarsSliderState extends State<CarsSlider> {
                           const SizedBox(width: 8),
                           Column(
                             children: [
-                              _miniBtn(icon: Icons.edit, tooltip: 'تعديل'),
+                              _miniBtn(
+                                icon: Icons.edit,
+                                tooltip: 'تعديل',
+                                onTap: () {
+                                  debugPrint('edit car = $c');
+                                  widget.onEdit?.call(c);
+                                },
+                              ),
                               const SizedBox(height: 8),
-                              _miniBtn(icon: Icons.delete, tooltip: 'حذف'),
+                              _miniBtn(
+                                icon: Icons.delete,
+                                tooltip: 'حذف',
+                                onTap: () {
+                                  debugPrint('delete car = $c');
+                                  widget.onDelete?.call(c);
+                                },
+                              ),
                             ],
                           ),
                         ],
@@ -239,10 +517,10 @@ class CarsSliderState extends State<CarsSlider> {
                           color: Colors.white.withOpacity(0.10),
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: Text(
+                        child: const Text(
                           'بيانات السيارة محفوظة',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
                             fontSize: 13,
@@ -295,22 +573,27 @@ class CarsSliderState extends State<CarsSlider> {
     ),
   );
 
-  Widget _miniBtn({required IconData icon, String? tooltip}) => Tooltip(
-    message: tooltip ?? '',
-    child: InkWell(
-      onTap: () {},
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        width: 42,
-        height: 38,
-        decoration: BoxDecoration(
-          color: Colors.white24,
+  Widget _miniBtn({
+    required IconData icon,
+    String? tooltip,
+    VoidCallback? onTap,
+  }) =>
+      Tooltip(
+        message: tooltip ?? '',
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: 42,
+            height: 38,
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: Colors.white),
+          ),
         ),
-        child: Icon(icon, size: 18, color: Colors.white),
-      ),
-    ),
-  );
+      );
 }
 
 class CarFormCard extends StatefulWidget {
@@ -342,7 +625,7 @@ class _CarFormCardState extends State<CarFormCard> {
 
   bool _isValidVin(String? value) {
     final v = (value ?? '').trim().toUpperCase();
-    if (v.isEmpty) return true; // اختياري
+    if (v.isEmpty) return true;
     return RegExp(r'^[A-HJ-NPR-Z0-9]{17}$').hasMatch(v);
   }
 
@@ -582,6 +865,9 @@ class _CarFormCardState extends State<CarFormCard> {
                     );
 
                     if (result == null) {
+                      await homeProvider.fetchUserCars();
+                      context.read<CarProvider>().setCars(homeProvider.userCars);
+
                       setState(() {
                         selectedBrandCode = null;
                         selectedBrandName = null;

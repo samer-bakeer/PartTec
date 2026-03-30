@@ -221,7 +221,7 @@ class HomeProvider with ChangeNotifier {
 
     try {
       final response = await http.get(
-        Uri.parse('${AppSettings.serverurl}/cars/veiwCars/$uid'),
+        Uri.parse('${AppSettings.serverurl}/cars/viewCars/$uid'),
       );
 
       if (response.statusCode == 200) {
